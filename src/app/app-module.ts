@@ -10,6 +10,7 @@ import { App } from './app';
 import { ContractionService } from './services/contraction.service';
 import { AuthService } from './services/auth.service';
 import { Login } from './components/login/login';
+import { ChartComponent } from './components/chart/chart';
 import { environment } from '../environments/environment';
 
 // Log config at module load time
@@ -19,7 +20,8 @@ console.log('Full Firebase Config:', environment.firebase);
 @NgModule({
   declarations: [
     App,
-    Login
+    Login,
+    ChartComponent
   ],
   imports: [
     BrowserModule,

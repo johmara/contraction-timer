@@ -233,4 +233,16 @@ export class ContractionService {
     const lastContraction = session.contractions[session.contractions.length - 1];
     return !lastContraction.endTime ? lastContraction : null;
   }
+
+  deleteSession(sessionId: string): void {
+    const sessions = this.getAllSessions();
+    const updatedSessions = sessions.filter(s => s.id !== sessionId);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedSessions));
+    
+    // If the deleted session was the current session, clear it
+    const currentSession = this.currentSessionSubject.value;
+    if (currentSession && currentSession.id === sessionId) {
+      this.currentSessionSubject.next(null);
+    }
+  }
 }

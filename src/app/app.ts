@@ -4,6 +4,8 @@ import { AuthService } from './services/auth.service';
 import { Contraction, ContractionSession, BirthPrediction } from './models/contraction.model';
 import { Subscription, interval } from 'rxjs';
 
+type TabType = 'current' | 'history' | 'chart';
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.html',
@@ -18,6 +20,8 @@ export class App implements OnInit, OnDestroy {
   isAuthenticated = false;
   userName: string | null = null;
   userPhotoURL: string | null = null;
+  activeTab: TabType = 'current';
+  allSessions: ContractionSession[] = [];
   private subscriptions = new Subscription();
 
   constructor(
@@ -39,6 +43,7 @@ export class App implements OnInit, OnDestroy {
       this.contractionService.currentSession$.subscribe(session => {
         this.currentSession = session;
         this.updatePrediction();
+        this.loadAllSessions();
       })
     );
 
@@ -49,10 +54,22 @@ export class App implements OnInit, OnDestroy {
         this.activeContraction = this.contractionService.getActiveContraction();
       })
     );
+
+    // Load all sessions on init
+    this.loadAllSessions();
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+  }
+
+  loadAllSessions(): void {
+    this.allSessions = this.contractionService.getAllSessions()
+      .sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+  }
+
+  setActiveTab(tab: TabType): void {
+    this.activeTab = tab;
   }
 
   async signOut(): Promise<void> {
@@ -65,6 +82,7 @@ export class App implements OnInit, OnDestroy {
 
   startSession(): void {
     this.contractionService.startNewSession();
+    this.activeTab = 'current';
   }
 
   startContraction(): void {
@@ -84,6 +102,13 @@ export class App implements OnInit, OnDestroy {
     if (confirm('Are you sure you want to delete this contraction?')) {
       this.contractionService.deleteContraction(contractionId);
       this.updatePrediction();
+    }
+  }
+
+  deleteSession(sessionId: string): void {
+    if (confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
+      this.contractionService.deleteSession(sessionId);
+      this.loadAllSessions();
     }
   }
 
@@ -127,5 +152,30 @@ export class App implements OnInit, OnDestroy {
 
   getReversedContractions(): Contraction[] {
     return this.currentSession ? [...this.currentSession.contractions].reverse() : [];
+  }
+
+  get sessionHistory(): ContractionSession[] {
+    return this.allSessions.filter(s => !s.isActive);
+  }
+
+  getInactiveSessionsSortedByDate(): ContractionSession[] {
+    return this.allSessions.filter(s => !s.isActive);
+  }
+
+  getSessionDuration(session: ContractionSession): string {
+    if (!session.contractions.length) return 'No contractions';
+    
+    const first = session.contractions[0];
+    const last = session.contractions[session.contractions.length - 1];
+    const endTime = last.endTime || last.startTime;
+    
+    const durationMs = endTime.getTime() - first.startTime.getTime();
+    const hours = Math.floor(durationMs / (1000 * 60 * 60));
+    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
   }
 }

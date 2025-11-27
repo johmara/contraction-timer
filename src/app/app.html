@@ -17,14 +17,38 @@
     </div>
   </header>
 
-  <!-- No Active Session -->
-  <div *ngIf="!currentSession" class="welcome">
-    <p class="info">Start a new session to begin tracking contractions</p>
-    <button class="btn btn-primary btn-large" (click)="startSession()">Start New Session</button>
-  </div>
+  <!-- Tab Navigation -->
+  <nav class="tabs">
+    <button 
+      class="tab" 
+      [class.active]="activeTab === 'current'"
+      (click)="activeTab = 'current'">
+      Current Session
+    </button>
+    <button 
+      class="tab" 
+      [class.active]="activeTab === 'history'"
+      (click)="activeTab = 'history'">
+      History
+    </button>
+    <button 
+      class="tab" 
+      [class.active]="activeTab === 'chart'"
+      (click)="activeTab = 'chart'">
+      Chart
+    </button>
+  </nav>
 
-  <!-- Active Session -->
-  <div *ngIf="currentSession" class="session-active">
+  <!-- Current Session Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'current'">
+    <!-- No Active Session -->
+    <div *ngIf="!currentSession" class="welcome">
+      <p class="info">Start a new session to begin tracking contractions</p>
+      <button class="btn btn-primary btn-large" (click)="startSession()">Start New Session</button>
+    </div>
+
+    <!-- Active Session -->
+    <div *ngIf="currentSession" class="session-active">
     <!-- Timer Controls -->
     <div class="timer-section">
       <div class="timer-display" *ngIf="activeContraction">
@@ -122,6 +146,48 @@
     <!-- End Session Button -->
     <div class="session-actions">
       <button class="btn btn-secondary" (click)="endSession()">End Session</button>
+    </div>
+  </div>
+  </div>
+
+  <!-- History Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'history'">
+    <div *ngIf="sessionHistory.length === 0" class="empty-state">
+      <p class="info">No previous sessions found</p>
+      <p class="info-small">Complete a session to see it appear here</p>
+    </div>
+
+    <div *ngIf="sessionHistory.length > 0" class="session-history">
+      <div class="session-card" *ngFor="let session of sessionHistory">
+        <div class="session-header">
+          <h3>{{ session.startDate | date:'medium' }}</h3>
+          <button class="btn btn-delete btn-small" (click)="deleteSession(session.id)">
+            Delete
+          </button>
+        </div>
+        <div class="session-stats">
+          <div class="stat-item">
+            <span class="stat-label">Duration:</span>
+            <span class="stat-value">{{ getSessionDuration(session) }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Contractions:</span>
+            <span class="stat-value">{{ session.contractions.length }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart Tab -->
+  <div class="tab-content" *ngIf="activeTab === 'chart'">
+    <div *ngIf="!currentSession" class="empty-state">
+      <p class="info">No active session</p>
+      <p class="info-small">Start a session to see contraction data visualized</p>
+    </div>
+
+    <div *ngIf="currentSession">
+      <app-chart [session]="currentSession"></app-chart>
     </div>
   </div>
 </div>

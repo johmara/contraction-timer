@@ -1,0 +1,6 @@
+<div class="chart-container">
+  <canvas #chartCanvas></canvas>
+  <div *ngIf="!session || !session.contractions.length" class="no-data">
+    <p>No contraction data available yet. Start tracking contractions to see visualizations.</p>
+  </div>
+</div>
