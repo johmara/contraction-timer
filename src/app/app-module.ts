@@ -1,4 +1,4 @@
-import { NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
@@ -12,6 +12,10 @@ import { AuthService } from './services/auth.service';
 import { Login } from './components/login/login';
 import { environment } from '../environments/environment';
 
+// Log config at module load time
+console.log('=== Module Loading - Firebase Config Check ===');
+console.log('Full Firebase Config:', environment.firebase);
+
 @NgModule({
   declarations: [
     App,
@@ -23,24 +27,25 @@ import { environment } from '../environments/environment';
     AppRoutingModule
   ],
   providers: [
-    provideBrowserGlobalErrorListeners(),
     provideFirebaseApp(() => {
-      console.log('Initializing Firebase with config:', {
-        ...environment.firebase,
-        apiKey: environment.firebase.apiKey?.substring(0, 10) + '...',
-        appId: environment.firebase.appId?.substring(0, 10) + '...'
-      });
-      try {
-        return initializeApp(environment.firebase);
-      } catch (error) {
-        console.error('Firebase initialization error:', error);
-        throw error;
-      }
+      console.log('=== Initializing Firebase App ===');
+      console.log('Config:', environment.firebase);
+      const app = initializeApp(environment.firebase);
+      console.log('✅ Firebase App initialized');
+      return app;
     }),
-    provideAuth(() => getAuth()),
-    provideFirestore(() => getFirestore()),
-    ContractionService,
-    AuthService
+    provideAuth(() => {
+      console.log('=== Initializing Firebase Auth ===');
+      const auth = getAuth();
+      console.log('✅ Auth initialized');
+      return auth;
+    }),
+    provideFirestore(() => {
+      console.log('=== Initializing Firestore ===');
+      const firestore = getFirestore();
+      console.log('✅ Firestore initialized');
+      return firestore;
+    })
   ],
   bootstrap: [App]
 })

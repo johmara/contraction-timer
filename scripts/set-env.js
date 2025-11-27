@@ -1,6 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 
+// Load .env file if it exists (for local development)
+const envPath = path.join(__dirname, '../.env');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const [key, value] = line.split('=');
+    if (key && value && !process.env[key]) {
+      process.env[key] = value.trim();
+    }
+  });
+  console.log('Loaded environment variables from .env file');
+}
+
 // Determine if we're building for production
 const isProduction = process.argv.includes('--prod') || process.env.NODE_ENV === 'production';
 
