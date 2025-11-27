@@ -24,7 +24,19 @@ import { environment } from '../environments/environment';
   ],
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideFirebaseApp(() => initializeApp(environment.firebase)),
+    provideFirebaseApp(() => {
+      console.log('Initializing Firebase with config:', {
+        ...environment.firebase,
+        apiKey: environment.firebase.apiKey?.substring(0, 10) + '...',
+        appId: environment.firebase.appId?.substring(0, 10) + '...'
+      });
+      try {
+        return initializeApp(environment.firebase);
+      } catch (error) {
+        console.error('Firebase initialization error:', error);
+        throw error;
+      }
+    }),
     provideAuth(() => getAuth()),
     provideFirestore(() => getFirestore()),
     ContractionService,
