@@ -43,10 +43,10 @@ jobs:
 
       - name: Debug environment file
         run: |
-          echo "Checking environment.prod.ts content (masking sensitive data):"
-          cat src/environments/environment.prod.ts | grep -E "(production|projectId):"
-          echo "Checking environment.ts content (masking sensitive data):"
-          cat src/environments/environment.ts | grep -E "(production|projectId):"
+          echo "Checking environment.prod.ts structure:"
+          cat src/environments/environment.prod.ts
+          echo "Checking environment.ts structure:"
+          cat src/environments/environment.ts
 
       - name: Build
         run: npm run build -- --configuration=production --base-href=/contraction-timer/
