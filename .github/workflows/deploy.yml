@@ -45,9 +45,21 @@ jobs:
         run: |
           echo "Checking environment.prod.ts content (masking sensitive data):"
           cat src/environments/environment.prod.ts | grep -E "(production|projectId):"
+          echo "Checking environment.ts content (masking sensitive data):"
+          cat src/environments/environment.ts | grep -E "(production|projectId):"
 
       - name: Build
         run: npm run build -- --configuration=production --base-href=/contraction-timer/
+        
+      - name: Verify built file contains Firebase config
+        run: |
+          echo "Checking if built JavaScript contains placeholder values:"
+          if grep -q "YOUR_API_KEY" dist/contraction-timer/browser/main-*.js; then
+            echo "ERROR: Built file still contains placeholder values!"
+            exit 1
+          else
+            echo "SUCCESS: No placeholder values found in built file"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
