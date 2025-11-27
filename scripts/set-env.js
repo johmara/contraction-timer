@@ -14,9 +14,6 @@ if (fs.existsSync(envPath)) {
   console.log('Loaded environment variables from .env file');
 }
 
-// Determine if we're building for production
-const isProduction = process.argv.includes('--prod') || process.env.NODE_ENV === 'production';
-
 // Read environment variables
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY || 'YOUR_API_KEY',
@@ -27,9 +24,10 @@ const firebaseConfig = {
   appId: process.env.FIREBASE_APP_ID || 'YOUR_APP_ID'
 };
 
-// Generate the environment file content
-const envFileContent = `export const environment = {
-  production: ${isProduction},
+// Generate environment.ts (development) with localMode enabled
+const devEnvContent = `export const environment = {
+  production: false,
+  localMode: true, // Set to true to bypass Firebase and test locally
   firebase: {
     apiKey: '${firebaseConfig.apiKey}',
     authDomain: '${firebaseConfig.authDomain}',
@@ -41,14 +39,29 @@ const envFileContent = `export const environment = {
 };
 `;
 
-// Write to BOTH environment files to ensure consistency
-const files = ['environment.ts', 'environment.prod.ts'];
-files.forEach(file => {
-  const envPath = path.join(__dirname, '../src/environments', file);
-  fs.writeFileSync(envPath, envFileContent, { encoding: 'utf8' });
-  console.log(`Environment file generated: ${file}`);
-});
+// Generate environment.prod.ts (production) with localMode disabled
+const prodEnvContent = `export const environment = {
+  production: true,
+  localMode: false, // Always false in production
+  firebase: {
+    apiKey: '${firebaseConfig.apiKey}',
+    authDomain: '${firebaseConfig.authDomain}',
+    projectId: '${firebaseConfig.projectId}',
+    storageBucket: '${firebaseConfig.storageBucket}',
+    messagingSenderId: '${firebaseConfig.messagingSenderId}',
+    appId: '${firebaseConfig.appId}'
+  }
+};
+`;
 
-console.log(`Production mode: ${isProduction}`);
+// Write environment.ts
+const devEnvPath = path.join(__dirname, '../src/environments/environment.ts');
+fs.writeFileSync(devEnvPath, devEnvContent, { encoding: 'utf8' });
+console.log('Environment file generated: environment.ts');
+
+// Write environment.prod.ts
+const prodEnvPath = path.join(__dirname, '../src/environments/environment.prod.ts');
+fs.writeFileSync(prodEnvPath, prodEnvContent, { encoding: 'utf8' });
+console.log('Environment file generated: environment.prod.ts');
+
 console.log(`Firebase Project ID: ${firebaseConfig.projectId}`);
-

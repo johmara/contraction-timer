@@ -3,6 +3,7 @@ import { ContractionService } from './services/contraction.service';
 import { AuthService } from './services/auth.service';
 import { Contraction, ContractionSession, BirthPrediction } from './models/contraction.model';
 import { Subscription, interval } from 'rxjs';
+import { environment } from '../environments/environment';
 
 type TabType = 'current' | 'history' | 'chart';
 
@@ -22,6 +23,7 @@ export class App implements OnInit, OnDestroy {
   userPhotoURL: string | null = null;
   activeTab: TabType = 'current';
   allSessions: ContractionSession[] = [];
+  isLocalMode = environment.localMode;
   private subscriptions = new Subscription();
 
   constructor(

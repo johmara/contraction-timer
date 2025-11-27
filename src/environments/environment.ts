@@ -1,5 +1,6 @@
 export const environment = {
   production: false,
+  localMode: true, // Set to true to bypass Firebase and test locally
   firebase: {
     apiKey: 'AIzaSyBFZqkCqWXtKU4PEzIzjYZLf5ZZSBrfczc',
     authDomain: 'contraction-timer-40d06.firebaseapp.com',

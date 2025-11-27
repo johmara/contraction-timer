@@ -9,6 +9,7 @@ import {
   authState
 } from '@angular/fire/auth';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -19,18 +20,35 @@ export class AuthService {
   private githubProvider = new GithubAuthProvider();
 
   constructor(private auth: Auth) {
-    // Listen to auth state changes
-    onAuthStateChanged(this.auth, (user) => {
-      this.currentUserSubject.next(user);
-      if (user) {
-        console.log('User logged in:', user.displayName, user.email);
-      } else {
-        console.log('User logged out');
-      }
-    });
+    // In local mode, auto-login with mock user
+    if (environment.localMode) {
+      console.log('🧪 Local Mode: Using mock authentication');
+      const mockUser = {
+        uid: 'local-user-id',
+        displayName: 'Local Test User',
+        email: 'test@local.dev',
+        photoURL: 'https://via.placeholder.com/150',
+      } as User;
+      this.currentUserSubject.next(mockUser);
+    } else {
+      // Listen to auth state changes
+      onAuthStateChanged(this.auth, (user) => {
+        this.currentUserSubject.next(user);
+        if (user) {
+          console.log('User logged in:', user.displayName, user.email);
+        } else {
+          console.log('User logged out');
+        }
+      });
+    }
   }
 
   async signInWithGitHub(): Promise<User> {
+    if (environment.localMode) {
+      console.log('🧪 Local Mode: Mock sign-in');
+      return this.currentUserSubject.value!;
+    }
+    
     try {
       const result = await signInWithPopup(this.auth, this.githubProvider);
       return result.user;
@@ -41,6 +59,11 @@ export class AuthService {
   }
 
   async signOut(): Promise<void> {
+    if (environment.localMode) {
+      console.log('🧪 Local Mode: Mock sign-out (not allowed in local mode)');
+      return;
+    }
+    
     try {
       await signOut(this.auth);
     } catch (error) {

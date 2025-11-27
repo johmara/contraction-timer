@@ -4,7 +4,10 @@ A web application for tracking contractions during labor and predicting birth ti
 
 ## Features
 
-- **GitHub Authentication**: Sign in with your GitHub account
+- **Tabbed Interface**: Navigate between Current Session, History, and Chart views
+- **Session History**: Review past contraction sessions
+- **Chart Visualization**: Visual representation of contraction patterns using Chart.js
+- **GitHub Authentication**: Sign in with your GitHub account (optional - see Local Mode below)
 - **Real-time Cloud Sync**: Your data syncs across all devices via Firebase Firestore
 - **Contraction Tracking**: Start and stop contractions with precise timing
 - **Automatic Calculations**: Tracks duration and frequency of contractions
@@ -12,6 +15,7 @@ A web application for tracking contractions during labor and predicting birth ti
 - **Responsive Design**: Works on mobile, tablet, and desktop
 - **Session Management**: Start/end sessions and maintain history
 - **Privacy**: Your data is private and only accessible to you
+- **Local Development Mode**: Test the app without Firebase (see below)
 
 ## How It Works
 
@@ -60,7 +64,28 @@ This project was generated using [Angular CLI](https://github.com/angular/angula
 npm install
 ```
 
-2. **Set up Firebase** (Required for authentication and database)
+2. **Local Development Mode (No Firebase Required)**
+   
+   For testing the UI and basic functionality without setting up Firebase:
+   
+   ```bash
+   # The app is already configured for local mode by default
+   npm start
+   # or
+   ng serve
+   ```
+   
+   Navigate to `http://localhost:4200/`
+   
+   - You'll see a banner indicating "Local Development Mode"
+   - You'll be automatically logged in as "Local Test User"
+   - Data is stored in browser localStorage
+   - No Firebase or GitHub OAuth required
+   - Perfect for UI testing and development
+   
+   **To disable local mode**, edit `scripts/set-env.js` and set `localMode: false` in the development environment.
+
+3. **Set up Firebase** (Required for production and authentication)
    
    Follow the detailed guide in [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
    
@@ -71,18 +96,18 @@ npm install
    - Create GitHub OAuth App
    - Update `src/environments/environment.ts` with your Firebase config
 
-3. **Development Server**
+4. **Development Server**
 ```bash
 ng serve
 ```
 Navigate to `http://localhost:4200/`
 
-4. **Build**
+5. **Build**
 ```bash
 ng build
 ```
 
-5. **Run Tests**
+6. **Run Tests**
 ```bash
 ng test
 ```

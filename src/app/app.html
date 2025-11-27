@@ -3,6 +3,11 @@
 
 <!-- Show app if authenticated -->
 <div class="container" *ngIf="isAuthenticated">
+  <!-- Local Mode Banner -->
+  <div *ngIf="isLocalMode" class="local-mode-banner">
+    🧪 Local Development Mode - No Firebase required - Data stored in browser
+  </div>
+
   <header>
     <div class="header-content">
       <div>

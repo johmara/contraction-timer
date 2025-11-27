@@ -1,5 +1,6 @@
 export const environment = {
-  production: false,
+  production: true,
+  localMode: false, // Always false in production
   firebase: {
     apiKey: 'AIzaSyBFZqkCqWXtKU4PEzIzjYZLf5ZZSBrfczc',
     authDomain: 'contraction-timer-40d06.firebaseapp.com',
