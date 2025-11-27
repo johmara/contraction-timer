@@ -47,7 +47,7 @@ jobs:
           cat src/environments/environment.prod.ts | grep -E "(production|projectId):"
 
       - name: Build
-        run: npm run build -- --base-href=/contraction-timer/
+        run: npm run build -- --configuration=production --base-href=/contraction-timer/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
