@@ -3,69 +3,77 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
+  background: linear-gradient(180deg, var(--color-primary-light) 0%, var(--color-secondary-light) 100%);
+  padding: var(--spacing-lg);
 }
 
 .login-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-width: 500px;
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-large);
+  max-width: 480px;
   width: 100%;
   overflow: hidden;
 }
 
 .login-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 40px 30px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: var(--color-white);
+  padding: var(--spacing-2xl) var(--spacing-xl);
   text-align: center;
 }
 
 .login-header h1 {
-  margin: 0 0 10px 0;
-  font-size: 2.5em;
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: var(--font-size-3xl);
+  font-weight: 800;
 }
 
 .login-header .subtitle {
   margin: 0;
-  font-size: 1.1em;
-  opacity: 0.9;
+  font-size: var(--font-size-base);
+  opacity: 0.95;
 }
 
 .login-content {
-  padding: 40px 30px;
+  padding: var(--spacing-2xl) var(--spacing-xl);
 }
 
 .welcome-text {
   text-align: center;
-  font-size: 1.1em;
-  color: #666;
-  margin-bottom: 30px;
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+  margin-bottom: var(--spacing-xl);
+  font-weight: 600;
 }
 
 .btn-github {
   width: 100%;
-  padding: 16px 24px;
-  font-size: 18px;
-  font-weight: 600;
-  color: white;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-white);
   background-color: #24292e;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: var(--transition);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: var(--spacing-md);
+  min-height: 56px;
+  box-shadow: var(--shadow-medium);
 }
 
 .btn-github:hover:not(:disabled) {
   background-color: #1b1f23;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-large);
+}
+
+.btn-github:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .btn-github:disabled {
@@ -76,29 +84,30 @@
 .github-icon {
   width: 24px;
   height: 24px;
-  fill: white;
+  fill: var(--color-white);
 }
 
 .error-message {
-  margin-top: 20px;
-  padding: 12px;
-  background-color: #fee;
-  border: 1px solid #fcc;
-  border-radius: 6px;
-  color: #c33;
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-white);
   text-align: center;
+  font-weight: 600;
 }
 
 .features {
-  margin-top: 40px;
-  padding-top: 30px;
-  border-top: 1px solid #e0e0e0;
+  margin-top: var(--spacing-2xl);
+  padding-top: var(--spacing-xl);
+  border-top: 2px solid var(--color-gray-100);
 }
 
 .features h3 {
-  color: #333;
-  margin: 0 0 15px 0;
-  font-size: 1.2em;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-xl);
+  font-weight: 700;
 }
 
 .features ul {
@@ -108,26 +117,37 @@
 }
 
 .features li {
-  padding: 8px 0;
-  color: #666;
+  padding: var(--spacing-sm) 0;
+  color: var(--color-text);
   position: relative;
-  padding-left: 25px;
+  padding-left: var(--spacing-xl);
+  font-size: var(--font-size-base);
 }
 
 .features li:before {
   content: "✓";
   position: absolute;
   left: 0;
-  color: #4CAF50;
+  color: var(--color-success);
   font-weight: bold;
+  font-size: var(--font-size-lg);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 480px) {
+  .login-container {
+    padding: var(--spacing-md);
+  }
+
   .login-header h1 {
-    font-size: 2em;
+    font-size: var(--font-size-2xl);
   }
 
   .login-content {
-    padding: 30px 20px;
+    padding: var(--spacing-xl) var(--spacing-lg);
+  }
+
+  .btn-github {
+    font-size: var(--font-size-base);
+    padding: var(--spacing-md) var(--spacing-lg);
   }
 }

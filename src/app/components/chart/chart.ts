@@ -50,31 +50,31 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         labels: data.labels,
         datasets: [
           {
-            label: 'Contraction Duration (seconds)',
+            label: 'Duration (sec)',
             data: data.durations,
-            backgroundColor: 'rgba(99, 102, 241, 0.6)',
-            borderColor: 'rgba(99, 102, 241, 1)',
-            borderWidth: 2,
-            borderRadius: 8,
+            backgroundColor: 'rgba(255, 182, 193, 0.7)', // Soft pink
+            borderColor: 'rgba(255, 159, 181, 1)',
+            borderWidth: 3,
+            borderRadius: 12,
             barThickness: 'flex',
-            maxBarThickness: 60
+            maxBarThickness: 50
           },
           {
-            label: 'Frequency (seconds between contractions)',
+            label: 'Frequency (sec)',
             data: data.frequencies,
-            backgroundColor: 'rgba(34, 197, 94, 0.6)',
-            borderColor: 'rgba(34, 197, 94, 1)',
-            borderWidth: 2,
-            borderRadius: 8,
+            backgroundColor: 'rgba(180, 215, 255, 0.7)', // Soft blue
+            borderColor: 'rgba(139, 195, 255, 1)',
+            borderWidth: 3,
+            borderRadius: 12,
             barThickness: 'flex',
-            maxBarThickness: 60
+            maxBarThickness: 50
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: true,
-        aspectRatio: 2,
+        aspectRatio: 1.8,
         interaction: {
           mode: 'index',
           intersect: false,
@@ -86,25 +86,40 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
               display: true,
               text: 'Time (seconds)',
               font: {
-                size: 14,
+                size: 13,
                 weight: 'bold'
-              }
+              },
+              color: '#7A7A7A'
             },
             grid: {
-              color: 'rgba(0, 0, 0, 0.05)'
+              color: 'rgba(232, 232, 232, 0.5)',
+              lineWidth: 1
+            },
+            ticks: {
+              color: '#7A7A7A',
+              font: {
+                size: 12
+              }
             }
           },
           x: {
             title: {
               display: true,
-              text: 'Contraction Number',
+              text: 'Contraction #',
               font: {
-                size: 14,
+                size: 13,
                 weight: 'bold'
-              }
+              },
+              color: '#7A7A7A'
             },
             grid: {
               display: false
+            },
+            ticks: {
+              color: '#7A7A7A',
+              font: {
+                size: 12
+              }
             }
           }
         },
@@ -114,21 +129,29 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             position: 'top',
             labels: {
               font: {
-                size: 12
+                size: 13,
+                weight: 'bold'
               },
-              padding: 15,
-              usePointStyle: true
+              padding: 16,
+              usePointStyle: true,
+              pointStyle: 'circle',
+              boxWidth: 8,
+              boxHeight: 8,
+              color: '#3D3D3D'
             }
           },
           tooltip: {
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            padding: 12,
+            backgroundColor: 'rgba(61, 61, 61, 0.95)',
+            padding: 14,
             titleFont: {
-              size: 14
+              size: 14,
+              weight: 'bold'
             },
             bodyFont: {
               size: 13
             },
+            cornerRadius: 12,
+            displayColors: true,
             callbacks: {
               label: (context) => {
                 const label = context.dataset.label || '';

@@ -1,15 +1,17 @@
 .chart-container {
-  background: white;
-  border-radius: var(--radius-lg);
-  padding: var(--space-8);
-  box-shadow: var(--shadow-lg);
-  margin: var(--space-6) 0;
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-soft);
+  margin: var(--spacing-md) 0;
   position: relative;
-  min-height: 400px;
+  min-height: 350px;
+  border: 3px solid var(--color-gray-100);
 }
 
 canvas {
-  max-height: 500px !important;
+  max-height: 450px !important;
+  border-radius: var(--radius-md);
 }
 
 .no-data {
@@ -18,22 +20,23 @@ canvas {
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  color: var(--gray-500);
+  color: var(--color-text-light);
   width: 80%;
 }
 
 .no-data p {
-  font-size: 1.1em;
+  font-size: var(--font-size-base);
   line-height: 1.6;
+  font-weight: 600;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 480px) {
   .chart-container {
-    padding: var(--space-4);
-    min-height: 300px;
+    padding: var(--spacing-md);
+    min-height: 280px;
   }
   
   canvas {
-    max-height: 350px !important;
+    max-height: 300px !important;
   }
 }
