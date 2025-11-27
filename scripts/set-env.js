@@ -4,10 +4,6 @@ const path = require('path');
 // Determine if we're building for production
 const isProduction = process.argv.includes('--prod') || process.env.NODE_ENV === 'production';
 
-// Select the appropriate environment file
-const envFile = isProduction ? 'environment.prod.ts' : 'environment.ts';
-const envPath = path.join(__dirname, '../src/environments', envFile);
-
 // Read environment variables
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY || 'YOUR_API_KEY',
@@ -32,9 +28,14 @@ const envFileContent = `export const environment = {
 };
 `;
 
-// Write the environment file
-fs.writeFileSync(envPath, envFileContent, { encoding: 'utf8' });
+// Write to BOTH environment files to ensure consistency
+const files = ['environment.ts', 'environment.prod.ts'];
+files.forEach(file => {
+  const envPath = path.join(__dirname, '../src/environments', file);
+  fs.writeFileSync(envPath, envFileContent, { encoding: 'utf8' });
+  console.log(`Environment file generated: ${file}`);
+});
 
-console.log(`Environment file generated: ${envFile}`);
 console.log(`Production mode: ${isProduction}`);
 console.log(`Firebase Project ID: ${firebaseConfig.projectId}`);
+
