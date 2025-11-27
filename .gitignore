@@ -43,6 +43,10 @@ __screenshots__/
 Thumbs.db
 
 # Environment files with sensitive data
-# Uncomment these if you want to keep Firebase config private
-# src/environments/environment.ts
-# src/environments/environment.prod.ts
+# Local environment files (for development)
+.env
+.env.local
+.env.*.local
+src/environments/environment.local.ts
+start-local.sh
+

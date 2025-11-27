@@ -18,13 +18,31 @@ This guide will walk you through setting up Firebase Authentication (with GitHub
 4. Click "Register app"
 5. Copy the Firebase configuration object - you'll need these values
 
-## Step 3: Configure Firebase in Your App
+## Step 3: Configure Firebase Using GitHub Secrets (Recommended)
 
-Open `src/environments/environment.ts` and `src/environments/environment.prod.ts` and replace the placeholder values with your Firebase config:
+For security, we'll use GitHub Secrets to store Firebase configuration. The app will automatically inject these during the build.
+
+### Option A: Using GitHub Secrets (Recommended for production)
+
+1. Go to your GitHub repository settings
+2. Navigate to **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret** and add each of these:
+   - `FIREBASE_API_KEY` - Your Firebase API key
+   - `FIREBASE_AUTH_DOMAIN` - Your Firebase auth domain (e.g., `your-project-id.firebaseapp.com`)
+   - `FIREBASE_PROJECT_ID` - Your Firebase project ID
+   - `FIREBASE_STORAGE_BUCKET` - Your storage bucket (e.g., `your-project-id.appspot.com`)
+   - `FIREBASE_MESSAGING_SENDER_ID` - Your messaging sender ID
+   - `FIREBASE_APP_ID` - Your Firebase app ID
+
+The deployment workflow will automatically inject these values during build.
+
+### Option B: Local Development
+
+For local development, create a file `src/environments/environment.local.ts` (this file is gitignored):
 
 ```typescript
 export const environment = {
-  production: false, // true in environment.prod.ts
+  production: false,
   firebase: {
     apiKey: "YOUR_ACTUAL_API_KEY",
     authDomain: "your-project-id.firebaseapp.com",
@@ -35,6 +53,21 @@ export const environment = {
   }
 };
 ```
+
+Then set environment variables before running locally:
+
+```bash
+export FIREBASE_API_KEY="your-api-key"
+export FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
+export FIREBASE_PROJECT_ID="your-project-id"
+export FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
+export FIREBASE_MESSAGING_SENDER_ID="123456789"
+export FIREBASE_APP_ID="1:123456789:web:abc123"
+
+npm start
+```
+
+Or create a `.env.local` file (gitignored) and source it before running.
 
 ## Step 4: Enable Firestore Database
 
@@ -103,34 +136,30 @@ Go back to your GitHub OAuth App settings and set:
 6. Copy the **authorization callback URL** (should match what you set in GitHub)
 7. Click "Save"
 
-## Step 7: Add Firebase Config to GitHub Secrets (For GitHub Pages)
+## Step 7: How the Build Process Works
 
-If you want to keep your Firebase config secure:
+The project uses GitHub Secrets to keep Firebase configuration secure:
 
-1. Go to your GitHub repository settings
-2. Navigate to **Secrets and variables** → **Actions**
-3. Add these secrets:
-   - `FIREBASE_API_KEY`
-   - `FIREBASE_AUTH_DOMAIN`
-   - `FIREBASE_PROJECT_ID`
-   - `FIREBASE_STORAGE_BUCKET`
-   - `FIREBASE_MESSAGING_SENDER_ID`
-   - `FIREBASE_APP_ID`
+1. **GitHub Actions**: When you push code, the deployment workflow reads the secrets you configured in Step 3
+2. **Build Script**: The `scripts/set-env.js` script automatically generates the environment files with your Firebase config
+3. **Angular Build**: The app is built with the injected configuration
+4. **Deployment**: The built app is deployed to GitHub Pages
 
-4. Update `.github/workflows/deploy.yml` to inject these during build:
+You **do not** need to manually edit environment files - they are generated automatically during build.
 
-```yaml
-- name: Build
-  run: |
-    npm run build -- --base-href=/contraction-timer/
-  env:
-    FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-    FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-    FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-    FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
-    FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-    FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-```
+### Security Best Practices
+
+✅ **What's Secure:**
+- Firebase config is stored in GitHub Secrets (encrypted)
+- Environment files with placeholders can be safely committed
+- Each user can only access their own data (via Firestore rules)
+- GitHub authentication ensures user identity
+
+⚠️ **Note on Firebase API Keys:**
+- Firebase client API keys are actually safe to expose publicly
+- They only identify your Firebase project
+- True security comes from Firebase Security Rules and authentication
+- However, using GitHub Secrets is still a best practice for configuration management
 
 ## Step 8: Update Authorized Domains
 
@@ -143,9 +172,25 @@ If you want to keep your Firebase config secure:
 
 ## Step 9: Test Locally
 
+Set up your local environment variables:
+
 ```bash
-cd contraction-timer
+# Option 1: Export environment variables
+export FIREBASE_API_KEY="your-api-key"
+export FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
+export FIREBASE_PROJECT_ID="your-project-id"
+export FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
+export FIREBASE_MESSAGING_SENDER_ID="123456789"
+export FIREBASE_APP_ID="1:123456789:web:abc123"
+
+# Generate environment files and start dev server
+node scripts/set-env.js
 npm start
+
+# Option 2: Create a local script (add to .gitignore)
+# Create start-local.sh with the exports above, then:
+chmod +x start-local.sh
+./start-local.sh
 ```
 
 Navigate to `http://localhost:4200` and try:
@@ -202,15 +247,21 @@ users/
 ## Security Notes
 
 ✅ **What's Secure:**
+- Firebase config stored in encrypted GitHub Secrets
+- Environment files in repository only contain placeholders
 - Each user can only access their own data
 - GitHub authentication ensures user identity
 - Firestore rules prevent unauthorized access
 
 ⚠️ **Best Practices:**
-- Never commit Firebase config with real values to public repos
-- Use GitHub Secrets for sensitive data
+- Never commit real Firebase values to the repository
+- Use GitHub Secrets for all environments
 - Keep Firebase security rules restrictive
 - Regularly review Firebase usage and security
+- Consider adding additional Firebase App Check for production
+
+📝 **Important Note:**
+Firebase client-side API keys are not "secret" in the traditional sense - they identify your project but don't authorize access. Security is enforced through Firebase Security Rules, not by hiding the API key. However, using environment variables is still recommended for configuration management and preventing key sprawl.
 
 ## Support
 
