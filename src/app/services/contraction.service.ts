@@ -310,43 +310,45 @@ export class ContractionService {
   }
 
   private seedTestDataIfEmpty(): void {
-    const sessions = this.getAllSessions();
-    console.log('🧪 Checking sessions count:', sessions.length);
+    // FORCE UPDATE: We now regenerate test data on every load to ensure 
+    // the user sees the latest "Chaotic" algorithm changes.
+    // In a real production app, we would remove this or gate it behind a flag.
+    let sessions = this.getAllSessions();
     
-    if (sessions.length === 0) {
-      console.log('🧪 Local Mode: Seeding realistic test data');
-      
-      // Create a realistic labor progression session from 8 hours ago
-      const sessionStart = new Date();
-      sessionStart.setHours(sessionStart.getHours() - 8);
-      
-      const testSession: ContractionSession = {
-        id: 'test-session-1',
-        startDate: new Date(new Date().getTime() - 12 * 3600 * 1000), // Started 12 hours ago
-        contractions: this.generateRealisticContractions(new Date()), // End now
-        isActive: false
-      };
-      
-      // Create another session from yesterday
-      const yesterdayEnd = new Date();
-      yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
-      yesterdayEnd.setHours(20, 0, 0, 0);
-      
-      const testSession2: ContractionSession = {
-        id: 'test-session-2',
-        startDate: new Date(yesterdayEnd.getTime() - 8 * 3600 * 1000),
-        contractions: this.generateRealisticContractions(yesterdayEnd),
-        isActive: false
-      };
-      
-      // Save both sessions
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify([testSession, testSession2]));
-      console.log('🧪 Test data seeded! Created 2 sessions');
-      console.log('🧪 Session 1:', testSession.contractions.length, 'contractions');
-      console.log('🧪 Session 2:', testSession2.contractions.length, 'contractions');
-    } else {
-      console.log('🧪 Existing sessions found, skipping seed');
-    }
+    // Remove old test sessions to ensure clean slate for the new algorithm
+    sessions = sessions.filter(s => !s.id.startsWith('test-session-'));
+    
+    console.log('🧪 Regenerating realistic test data with Chaos Mode...');
+    
+    // Create a realistic labor progression session from 8 hours ago
+    const sessionStart = new Date();
+    sessionStart.setHours(sessionStart.getHours() - 8);
+    
+    const testSession: ContractionSession = {
+      id: 'test-session-1',
+      startDate: new Date(new Date().getTime() - 12 * 3600 * 1000), // Started 12 hours ago
+      contractions: this.generateRealisticContractions(new Date()), // End now
+      isActive: false
+    };
+    
+    // Create another session from yesterday
+    const yesterdayEnd = new Date();
+    yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+    yesterdayEnd.setHours(20, 0, 0, 0);
+    
+    const testSession2: ContractionSession = {
+      id: 'test-session-2',
+      startDate: new Date(yesterdayEnd.getTime() - 8 * 3600 * 1000),
+      contractions: this.generateRealisticContractions(yesterdayEnd),
+      isActive: false
+    };
+    
+    // Add new chaotic sessions
+    sessions.push(testSession, testSession2);
+    
+    // Save updated sessions
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sessions));
+    console.log('🧪 Chaos data seeded! Total sessions:', sessions.length);
   }
 
   private generateRealisticContractions(sessionEnd: Date): Contraction[] {
