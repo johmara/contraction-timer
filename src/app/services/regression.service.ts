@@ -13,8 +13,9 @@ export class RegressionService {
   /**
    * Fits a 2nd degree polynomial (Parabola) to the data: y = ax^2 + bx + c
    * Useful for modeling the accelerating nature of labor contractions.
+   * @param weighted If true, assigns higher weight to recent data points (linear ramp 1->10)
    */
-  fitPolynomial(points: Point[], degree: number = 2): { predict: (x: number) => number, coefficients: number[] } {
+  fitPolynomial(points: Point[], degree: number = 2, weighted: boolean = false): { predict: (x: number) => number, coefficients: number[] } {
     if (points.length < degree + 1) {
       return { predict: () => 0, coefficients: [] };
     }
@@ -29,38 +30,44 @@ export class RegressionService {
       y: p.y
     }));
 
-    // Simple Least Squares for Quadratic (Degree 2)
-    // Matrix equation: X^T * X * B = X^T * Y
-    // For degree 2: y = a + bx + cx^2
+    // Weighted Least Squares for Quadratic (Degree 2)
+    // Matrix equation: X^T * W * X * B = X^T * W * Y
     
-    let n = normalizedPoints.length;
-    let sumX = 0, sumX2 = 0, sumX3 = 0, sumX4 = 0;
-    let sumY = 0, sumXY = 0, sumX2Y = 0;
+    let sumW = 0;
+    let sumWX = 0, sumWX2 = 0, sumWX3 = 0, sumWX4 = 0;
+    let sumWY = 0, sumWXY = 0, sumWX2Y = 0;
 
-    for (const p of normalizedPoints) {
+    for (let i = 0; i < normalizedPoints.length; i++) {
+      const p = normalizedPoints[i];
       const x = p.x;
       const x2 = x * x;
-      sumX += x;
-      sumX2 += x2;
-      sumX3 += x2 * x;
-      sumX4 += x2 * x2;
-      sumY += p.y;
-      sumXY += x * p.y;
-      sumX2Y += x2 * p.y;
+      
+      // Weighting: Linear ramp from 1 to 10 for recent points
+      const weight = weighted ? (1 + 9 * (i / (normalizedPoints.length - 1 || 1))) : 1;
+      
+      sumW += weight;
+      sumWX += weight * x;
+      sumWX2 += weight * x2;
+      sumWX3 += weight * x2 * x;
+      sumWX4 += weight * x2 * x2;
+      
+      sumWY += weight * p.y;
+      sumWXY += weight * x * p.y;
+      sumWX2Y += weight * x2 * p.y;
     }
 
-    // Solving 3x3 linear system using Cramer's rule or Gaussian elimination
-    // [ n      sumX    sumX2 ] [ a ]   [ sumY   ]
-    // [ sumX   sumX2   sumX3 ] [ b ] = [ sumXY  ]
-    // [ sumX2  sumX3   sumX4 ] [ c ]   [ sumX2Y ]
+    // Solving 3x3 linear system
+    // [ sumW     sumWX    sumWX2 ] [ a ]   [ sumWY   ]
+    // [ sumWX    sumWX2   sumWX3 ] [ b ] = [ sumWXY  ]
+    // [ sumWX2   sumWX3   sumWX4 ] [ c ]   [ sumWX2Y ]
 
     const matrix = [
-      [n, sumX, sumX2],
-      [sumX, sumX2, sumX3],
-      [sumX2, sumX3, sumX4]
+      [sumW, sumWX, sumWX2],
+      [sumWX, sumWX2, sumWX3],
+      [sumWX2, sumWX3, sumWX4]
     ];
     
-    const right = [sumY, sumXY, sumX2Y];
+    const right = [sumWY, sumWXY, sumWX2Y];
     
     const coeffs = this.solveLinearSystem(matrix, right); // [a, b, c]
     

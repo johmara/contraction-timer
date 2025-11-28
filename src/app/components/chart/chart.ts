@@ -395,11 +395,11 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     // --- 3. Fit Models on Active Data ---
-    // Trend: Polynomial (Degree 2) on Active Points
-    const trendFit = this.regressionService.fitPolynomial(activePoints, 2);
+    // Trend: Polynomial (Degree 2) on Active Points with Weighting (Recent points matter more)
+    const trendFit = this.regressionService.fitPolynomial(activePoints, 2, true);
     // Smooth Envelope Fits
-    const upperFit = this.regressionService.fitPolynomial(rawUpper, 2);
-    const lowerFit = this.regressionService.fitPolynomial(rawLower, 2);
+    const upperFit = this.regressionService.fitPolynomial(rawUpper, 2, true);
+    const lowerFit = this.regressionService.fitPolynomial(rawLower, 2, true);
 
     const trendLine: Point[] = [];
     const upperBand: Point[] = [];
