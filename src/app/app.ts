@@ -326,4 +326,9 @@ export class App implements OnInit, OnDestroy {
   togglePrediction(): void {
     this.isPredictionExpanded = !this.isPredictionExpanded;
   }
+
+  exitLandscapeChart(): void {
+    // Return to previous tab when user manually exits landscape chart
+    this.activeTab = this.previousTab;
+  }
 }

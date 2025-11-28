@@ -278,6 +278,18 @@
 
     <!-- Chart Tab -->
     <div class="tab-content" *ngIf="activeTab === 'chart'">
+      <!-- Exit button for landscape mode -->
+      <button 
+        *ngIf="isLandscape" 
+        class="landscape-exit-btn" 
+        (click)="exitLandscapeChart()"
+        aria-label="Exit chart view">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      
       <h3>Duration Chart</h3>
       
       <div *ngIf="!currentSession || currentSession.contractions.length === 0" class="empty-state">
@@ -297,7 +309,7 @@
   </div>
 
   <!-- Fixed Bottom Navigation Bar -->
-  <nav class="bottom-nav">
+  <nav class="bottom-nav" [class.landscape-hidden]="isLandscape && activeTab === 'chart'">
     <button 
       class="nav-item" 
       [class.active]="activeTab === 'current'"
