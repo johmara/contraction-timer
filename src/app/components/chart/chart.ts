@@ -288,9 +288,9 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private prepareChartData(): { 
     scatterPoints: Point[], 
-    trendLine: Point[],
-    upperBand: Point[],
-    lowerBand: Point[],
+    trendLine: (Point|null)[],
+    upperBand: (Point|null)[],
+    lowerBand: (Point|null)[],
     projectedUpper: Point[],
     projectedLower: Point[],
     intersection: Point[]
@@ -332,22 +332,52 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     // Sort by x (time)
     scatterPoints.sort((a, b) => a.x - b.x);
 
-    // 1. Calculate raw Moving Average statistics first
-    const windowSize = Math.max(3, Math.floor(scatterPoints.length / 5));
+    // --- 1. Detect Active Labor Start ---
+    // Criteria: 3 consecutive contractions with frequency < 6 minutes (360s)
+    let activeLaborStartIndex = 0;
+    const FREQ_THRESHOLD_MS = 6 * 60 * 1000;
+    let consistentCount = 0;
+
+    for (let i = 1; i < scatterPoints.length; i++) {
+      const freq = scatterPoints[i].x - scatterPoints[i-1].x;
+      if (freq < FREQ_THRESHOLD_MS) {
+        consistentCount++;
+      } else {
+        consistentCount = 0;
+      }
+
+      if (consistentCount >= 3) {
+        // Found it! Start from the beginning of this sequence
+        activeLaborStartIndex = i - 3;
+        break;
+      }
+    }
+    
+    // If no active labor detected yet, maybe use the last 30% or just fallback to 0
+    if (activeLaborStartIndex <= 0) {
+       activeLaborStartIndex = Math.floor(scatterPoints.length * 0.5); // Fallback to 2nd half
+    }
+
+    // Subset of points for Regression (Active Phase only)
+    const activePoints = scatterPoints.slice(activeLaborStartIndex);
+    
+    // --- 2. Calculate Statistics for Active Phase ---
+    const windowSize = Math.max(3, Math.floor(activePoints.length / 5));
     const rawUpper: Point[] = [];
     const rawLower: Point[] = [];
-    const spreadPoints: Point[] = []; // Track variance directly
+    const spreadPoints: Point[] = []; 
     
-    for (let i = 0; i < scatterPoints.length; i++) {
+    // We calculate stats only for the active portion
+    for (let i = 0; i < activePoints.length; i++) {
       const start = Math.max(0, i - Math.floor(windowSize / 2));
-      const end = Math.min(scatterPoints.length - 1, i + Math.floor(windowSize / 2));
+      const end = Math.min(activePoints.length - 1, i + Math.floor(windowSize / 2));
       
       let sum = 0;
       let sumSq = 0;
       
       for (let j = start; j <= end; j++) {
-        sum += scatterPoints[j].y;
-        sumSq += scatterPoints[j].y * scatterPoints[j].y;
+        sum += activePoints[j].y;
+        sumSq += activePoints[j].y * activePoints[j].y;
       }
       
       const count = end - start + 1;
@@ -355,52 +385,48 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       const variance = (sumSq / count) - (mean * mean);
       const sd = Math.sqrt(Math.max(0, variance));
       
-      const currentX = scatterPoints[i].x;
+      const currentX = activePoints[i].x;
       
-      // Raw envelope points (2 SD)
-      const upperY = mean + sd * 2.0;
-      const lowerY = mean - sd * 2.0;
-      
-      rawUpper.push({ x: currentX, y: upperY });
-      rawLower.push({ x: currentX, y: lowerY });
-      spreadPoints.push({ x: currentX, y: sd * 2.0 }); // Full spread width/2
+      rawUpper.push({ x: currentX, y: mean + sd * 2.0 });
+      rawLower.push({ x: currentX, y: mean - sd * 2.0 });
+      spreadPoints.push({ x: currentX, y: sd * 2.0 }); 
     }
 
-    // 2. Fit Models
-    // Trend: Polynomial (Degree 2)
-    const trendFit = this.regressionService.fitPolynomial(scatterPoints, 2);
-    // Spread: Linear (Decay) - guarantees we can find zero crossing
+    // --- 3. Fit Models on Active Data ---
+    // Trend: Polynomial (Degree 2) on Active Points
+    const trendFit = this.regressionService.fitPolynomial(activePoints, 2);
+    // Spread: Linear Decay on Active Variance
     const spreadFit = this.regressionService.fitLinear(spreadPoints);
     
-    // Fit Upper/Lower using Polynomials for the *past* data (smooth look)
+    // Smooth Envelope Fits
     const upperFit = this.regressionService.fitPolynomial(rawUpper, 2);
     const lowerFit = this.regressionService.fitPolynomial(rawLower, 2);
 
-    const trendLine: Point[] = [];
-    const upperBand: Point[] = [];
-    const lowerBand: Point[] = [];
+    const trendLine: (Point|null)[] = [];
+    const upperBand: (Point|null)[] = [];
+    const lowerBand: (Point|null)[] = [];
 
-    // Generate points for the smooth curves (Historical)
-    scatterPoints.forEach(p => {
-      trendLine.push({ x: p.x, y: trendFit.predict(p.x) });
-      upperBand.push({ x: p.x, y: Math.min(180, upperFit.predict(p.x)) });
-      lowerBand.push({ x: p.x, y: Math.max(0, lowerFit.predict(p.x)) });
-    });
+    // Generate points
+    // For Latent Phase (before active), we push NULL so lines don't appear
+    for (let i = 0; i < scatterPoints.length; i++) {
+      const p = scatterPoints[i];
+      if (i < activeLaborStartIndex) {
+        trendLine.push(null);
+        upperBand.push(null);
+        lowerBand.push(null);
+      } else {
+        trendLine.push({ x: p.x, y: trendFit.predict(p.x) });
+        upperBand.push({ x: p.x, y: Math.min(180, upperFit.predict(p.x)) });
+        lowerBand.push({ x: p.x, y: Math.max(0, lowerFit.predict(p.x)) });
+      }
+    }
 
-    // 3. Prediction: Project forward using Convergence Model
-    // We project the Trend (Polynomial) and the Spread (Linear Decay)
-    // This forces the envelope to converge if the variance is decreasing.
-    
+    // --- 4. Prediction ---
     const lastTime = scatterPoints[scatterPoints.length - 1].x;
-    
-    // Find where Spread hits zero (Intersection)
     let intersectionTime = spreadFit.zeroCrossing;
-    
-    // If intersection is in the past or way too far/diverging, fallback
-    const maxProjectionTime = lastTime + 12 * 60 * 60 * 1000; // Cap at 12 hours
+    const maxProjectionTime = lastTime + 12 * 60 * 60 * 1000;
     
     if (!intersectionTime || intersectionTime <= lastTime || intersectionTime > maxProjectionTime) {
-        // Fallback: If diverging, project a fixed distance
         intersectionTime = lastTime + 4 * 60 * 60 * 1000; 
     }
 
@@ -415,18 +441,14 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     
     for (let t = lastTime + stepSize; t <= intersectionTime; t += stepSize) {
       const trendY = trendFit.predict(t);
-      const spreadY = Math.max(0, spreadFit.predict(t)); // Clamp to 0
+      const spreadY = Math.max(0, spreadFit.predict(t)); 
       
-      const uY = trendY + spreadY;
-      const lY = trendY - spreadY;
+      projectedUpper.push({ x: t, y: trendY + spreadY });
+      projectedLower.push({ x: t, y: trendY - spreadY });
       
-      projectedUpper.push({ x: t, y: uY });
-      projectedLower.push({ x: t, y: lY });
-      
-      if (spreadY <= 0.5) break; // Close enough to zero
+      if (spreadY <= 0.5) break; 
     }
     
-    // The final point is the intersection
     const finalTrendY = trendFit.predict(intersectionTime);
     const intersectionPoint = { x: intersectionTime, y: finalTrendY };
 
