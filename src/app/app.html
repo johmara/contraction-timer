@@ -70,7 +70,7 @@
             <div class="stat-label">Total</div>
           </div>
           <div class="stat-card" *ngIf="prediction">
-            <div class="stat-value">{{ formatFrequency(prediction.avgFrequency) }}</div>
+            <div class="stat-value">{{ formatFrequency(prediction.avgFrequency * 60) }}</div>
             <div class="stat-label">Frequency</div>
           </div>
           <div class="stat-card" *ngIf="prediction">
@@ -115,7 +115,7 @@
                   <div class="metric-item">
                     <span class="metric-icon">⏱️</span>
                     <span class="metric-label">Frequency:</span>
-                    <span class="metric-value">{{ prediction.avgFrequency.toFixed(1) }} min apart</span>
+                    <span class="metric-value">{{ prediction.avgFrequency.toFixed(3) }} min apart</span>
                   </div>
                   <div class="metric-item">
                     <span class="metric-icon">📏</span>
