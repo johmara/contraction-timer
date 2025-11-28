@@ -17,6 +17,7 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
   
   private chart: Chart | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor(private regressionService: RegressionService) {}
 
@@ -145,8 +146,7 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 1.6,
+        maintainAspectRatio: false, // Allow chart to fill container
         interaction: {
           mode: 'point',
           intersect: false,

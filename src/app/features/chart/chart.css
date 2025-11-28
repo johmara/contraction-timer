@@ -40,3 +40,25 @@ canvas {
     max-height: 300px !important;
   }
 }
+
+/* Landscape mode optimization - fit to screen */
+@media (max-width: 1024px) and (orientation: landscape) {
+  .chart-container {
+    padding: 8px;
+    min-height: unset;
+    height: 100%;
+    margin: 0;
+    border: 2px solid var(--color-gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+  
+  canvas {
+    max-height: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    width: 100% !important;
+  }
+}
