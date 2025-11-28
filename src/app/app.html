@@ -235,16 +235,21 @@
              <button class="btn btn-sm btn-primary" (click)="viewSessionChart(session)">
                {{ chartSession?.id === session.id ? 'Hide Chart' : 'View Chart' }}
              </button>
-             <button class="btn btn-sm btn-ghost" (click)="exportSessionCSV(session)">
-               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-sm">
-                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                 <polyline points="14 2 14 8 20 8"></polyline>
-               </svg>
-               Export
-             </button>
-             <button class="btn btn-sm btn-ghost" (click)="deleteSession(session.id)">
-               Delete
-             </button>
+             <div class="session-secondary-actions">
+               <button class="btn btn-sm btn-ghost" (click)="exportSessionCSV(session)" title="Export CSV">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-sm">
+                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                   <polyline points="14 2 14 8 20 8"></polyline>
+                 </svg>
+                 Export
+               </button>
+               <button class="btn btn-sm btn-ghost btn-delete" (click)="deleteSession(session.id)" title="Delete Session">
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-sm">
+                   <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                 </svg>
+                 Delete
+               </button>
+             </div>
            </div>
           
           <!-- Inline Chart Display -->

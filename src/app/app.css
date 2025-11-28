@@ -628,10 +628,21 @@
 
 .session-card .session-actions {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #F5F0E8;
+}
+
+.session-secondary-actions {
+  display: flex;
   gap: 8px;
-  margin: 0;
-  padding: 0;
-  border: none;
+}
+
+.btn-delete:hover {
+  color: #C67B5C;
+  background: rgba(198, 123, 92, 0.1);
 }
 
 .session-chart-container {
