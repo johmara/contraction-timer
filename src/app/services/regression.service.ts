@@ -82,6 +82,96 @@ export class RegressionService {
   }
 
   /**
+   * Fits an exponential curve: y = a * e^(bx)
+   * Linearized as: ln(y) = ln(a) + bx
+   */
+  fitExponential(points: Point[], weighted: boolean = false): { predict: (x: number) => number, coefficients: number[] } {
+    if (points.length < 2) {
+      return { predict: () => 0, coefficients: [] };
+    }
+
+    // Normalized X
+    const minX = Math.min(...points.map(p => p.x));
+    const maxX = Math.max(...points.map(p => p.x));
+    const rangeX = maxX - minX || 1;
+
+    // Filter out y <= 0 for log
+    const validPoints = points.filter(p => p.y > 0);
+    if (validPoints.length < 2) return { predict: () => 0, coefficients: [] };
+
+    // Prepare for Linear Fit on (x, ln(y))
+    const linearizedPoints = validPoints.map(p => ({
+      x: (p.x - minX) / rangeX,
+      y: Math.log(p.y)
+    }));
+
+    // Reuse fitLinear logic manually or call it if refactored, but here we inline for WLS support
+    let sumW = 0;
+    let sumWX = 0, sumWY = 0, sumWXY = 0, sumWXX = 0;
+
+    for (let i = 0; i < linearizedPoints.length; i++) {
+      const p = linearizedPoints[i];
+      const weight = weighted ? (1 + 9 * (i / (linearizedPoints.length - 1 || 1))) : 1;
+
+      sumW += weight;
+      sumWX += weight * p.x;
+      sumWY += weight * p.y;
+      sumWXY += weight * p.x * p.y;
+      sumWXX += weight * p.x * p.x;
+    }
+
+    const denominator = sumW * sumWXX - sumWX * sumWX;
+    if (Math.abs(denominator) < 1e-9) return { predict: () => 0, coefficients: [] };
+
+    const slope = (sumW * sumWXY - sumWX * sumWY) / denominator;
+    const intercept = (sumWY - slope * sumWX) / sumW;
+
+    const a = Math.exp(intercept);
+    const b = slope;
+
+    return {
+      predict: (timestamp: number) => {
+        const normX = (timestamp - minX) / rangeX;
+        return a * Math.exp(b * normX);
+      },
+      coefficients: [a, b]
+    };
+  }
+
+  /**
+   * Automatically selects the best fit (Polynomial vs Exponential) based on RMSE.
+   */
+  fitBest(points: Point[], weighted: boolean = false): { predict: (x: number) => number, type: 'poly' | 'exp' } {
+    const poly = this.fitPolynomial(points, 2, weighted);
+    const exp = this.fitExponential(points, weighted);
+
+    const rmsePoly = this.calculateRMSE(points, poly.predict, weighted);
+    const rmseExp = this.calculateRMSE(points, exp.predict, weighted);
+
+    // Prefer Exponential if it's significantly better (e.g., > 5% improvement) to capture rapid onset
+    // Otherwise stick to Polynomial as it's more stable
+    if (rmseExp < rmsePoly * 0.95) {
+      return { predict: exp.predict, type: 'exp' };
+    }
+    return { predict: poly.predict, type: 'poly' };
+  }
+
+  private calculateRMSE(points: Point[], predictFn: (x: number) => number, weighted: boolean): number {
+    let sumSqErr = 0;
+    let sumW = 0;
+    
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const weight = weighted ? (1 + 9 * (i / (points.length - 1 || 1))) : 1;
+      const err = p.y - predictFn(p.x);
+      sumSqErr += weight * err * err;
+      sumW += weight;
+    }
+    
+    return Math.sqrt(sumSqErr / sumW);
+  }
+
+  /**
    * Fits a simple line: y = mx + c
    * Useful for predicting linear trends like variance decay.
    */

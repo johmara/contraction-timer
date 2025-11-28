@@ -47,18 +47,18 @@
                   "with": "src/environments/environment.prod.ts"
                 }
               ],
-               "budgets": [
-                 {
-                   "type": "initial",
-                   "maximumWarning": "710kB",
-                   "maximumError": "900kB"
-                 },
-                 {
-                   "type": "anyComponentStyle",
-                   "maximumWarning": "12kB",
-                   "maximumError": "15kB"
-                 }
-               ],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "750kB",
+                  "maximumError": "1mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "10kB",
+                  "maximumError": "12kB"
+                }
+              ],
                "outputHashing": "all",
                "serviceWorker": "ngsw-config.json"
             },
