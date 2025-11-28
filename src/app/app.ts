@@ -28,6 +28,7 @@ export class App implements OnInit, OnDestroy {
   showUserMenu = false;
   isPredictionExpanded = false;
   isLandscape = false;
+  showAllContractions = false;
   private previousTab: TabType = 'current';
   private subscriptions = new Subscription();
   
@@ -216,6 +217,47 @@ export class App implements OnInit, OnDestroy {
 
   getReversedContractions(): Contraction[] {
     return this.currentSession ? [...this.currentSession.contractions].reverse() : [];
+  }
+
+  getContractionsList(): Contraction[] {
+    const reversed = this.getReversedContractions();
+    return this.showAllContractions ? reversed : reversed.slice(0, 5);
+  }
+
+  toggleShowAllContractions(): void {
+    this.showAllContractions = !this.showAllContractions;
+  }
+
+  editContraction(contraction: Contraction): void {
+    if (!this.currentSession) return;
+
+    const currentDuration = contraction.duration ? this.formatDuration(contraction.duration) : '';
+    const newDuration = prompt(
+      'Enter duration in MM:SS format:',
+      currentDuration
+    );
+
+    if (newDuration === null) return; // User cancelled
+
+    // Parse MM:SS format
+    const match = newDuration.match(/^(\d+):(\d{2})$/);
+    if (!match) {
+      alert('Invalid format. Please use MM:SS format (e.g., 1:30 for 1 minute 30 seconds)');
+      return;
+    }
+
+    const minutes = parseInt(match[1], 10);
+    const seconds = parseInt(match[2], 10);
+    const totalSeconds = minutes * 60 + seconds;
+
+    if (totalSeconds <= 0) {
+      alert('Duration must be greater than 0 seconds');
+      return;
+    }
+
+    // Update the contraction
+    this.contractionService.updateContractionDuration(contraction.id, totalSeconds);
+    this.updatePrediction();
   }
 
   get sessionHistory(): ContractionSession[] {

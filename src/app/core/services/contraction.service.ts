@@ -163,6 +163,37 @@ export class ContractionService {
     }
   }
 
+  async updateContractionDuration(contractionId: string, newDuration: number): Promise<void> {
+    const session = this.currentSessionSubject.value;
+    if (!session) return;
+
+    const contraction = session.contractions.find(c => c.id === contractionId);
+    if (!contraction) return;
+
+    // Update duration
+    contraction.duration = newDuration;
+
+    // Update end time based on new duration
+    if (contraction.startTime) {
+      contraction.endTime = new Date(contraction.startTime.getTime() + newDuration * 1000);
+    }
+
+    // Recalculate frequencies for affected contractions
+    for (let i = 1; i < session.contractions.length; i++) {
+      const current = session.contractions[i];
+      const previous = session.contractions[i - 1];
+      
+      if (previous.endTime) {
+        current.frequency = Math.floor(
+          (current.startTime.getTime() - previous.endTime.getTime()) / 1000
+        );
+      }
+    }
+
+    this.currentSessionSubject.next(session);
+    await this.saveSession(session);
+  }
+
   getPrediction(): BirthPrediction | null {
     const session = this.currentSessionSubject.value;
     if (!session || session.contractions.length < 3) {

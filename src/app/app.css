@@ -504,17 +504,65 @@
   margin-bottom: 20px;
 }
 
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
 .history-section h3 {
   font-size: 16px;
   font-weight: 700;
   color: #2D2A32;
-  margin: 0 0 12px 0;
+  margin: 0;
+}
+
+.btn-toggle-all {
+  background: none;
+  border: 1px solid #E8DCC8;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4A3F5C;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-all:hover {
+  background: #F5F0E8;
+  border-color: #B6A992;
 }
 
 .contractions-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.contractions-list.scrollable {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.contractions-list.scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.contractions-list.scrollable::-webkit-scrollbar-track {
+  background: #F5F0E8;
+  border-radius: 3px;
+}
+
+.contractions-list.scrollable::-webkit-scrollbar-thumb {
+  background: #B6A992;
+  border-radius: 3px;
+}
+
+.contractions-list.scrollable::-webkit-scrollbar-thumb:hover {
+  background: #9C8F7A;
 }
 
 .contraction-item {
@@ -556,6 +604,34 @@
   color: #2D2A32;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.contraction-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-icon-edit {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #7BA05B;
+  padding: 6px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon-edit svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-icon-edit:hover {
+  background: rgba(123, 160, 91, 0.1);
+  color: #6B8F51;
 }
 
 /* ========== SESSION ACTIONS ========== */

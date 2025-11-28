@@ -133,13 +133,41 @@
               </div>
             </div>
           </div>
+
+          <!-- Birth Time Button/Display (Right under prediction card) -->
+          <button class="btn btn-secondary" (click)="markBirthTime()" *ngIf="currentSession && !currentSession.actualBirthTime" style="margin-top: 12px;">
+            👶 Mark Birth Time
+          </button>
+          <div class="birth-time-display" *ngIf="currentSession?.actualBirthTime" style="margin-top: 12px;">
+            <span class="birth-icon">🎉</span>
+            <div class="birth-info">
+              <div class="birth-label">Baby Born</div>
+              <div class="birth-time">{{ currentSession.actualBirthTime | date:'HH:mm dd-MM-yyyy' }}</div>
+              <div class="prediction-accuracy" *ngIf="prediction">
+                <span class="accuracy-label">Predicted:</span>
+                <span class="accuracy-time">{{ prediction.estimatedTime | date:'HH:mm' }}</span>
+                <span class="accuracy-diff" [class.accurate]="isPredictionAccurate()">({{ getPredictionDifference() }})</span>
+              </div>
+            </div>
+            <button class="btn-icon-small" (click)="clearBirthTime()" title="Clear birth time">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <!-- Contraction History -->
         <div class="history-section" *ngIf="currentSession.contractions.length > 0">
-          <h3>Recent Contractions</h3>
-          <div class="contractions-list">
-            <div class="contraction-item" *ngFor="let contraction of getReversedContractions().slice(0, 5); let i = index">
+          <div class="history-header">
+            <h3>Contractions ({{ currentSession.contractions.length }})</h3>
+            <button class="btn-toggle-all" (click)="toggleShowAllContractions()">
+              {{ showAllContractions ? 'Show Recent' : 'Show All' }}
+            </button>
+          </div>
+          <div class="contractions-list" [class.scrollable]="showAllContractions">
+            <div class="contraction-item" *ngFor="let contraction of getContractionsList(); let i = index">
               <div class="contraction-time">
                 {{ contraction.startTime | date:'HH:mm' }}
               </div>
@@ -153,38 +181,25 @@
                   <span class="value">{{ formatFrequency(contraction.frequency) }}</span>
                 </div>
               </div>
-              <button class="btn-icon-delete" (click)="deleteContraction(contraction.id)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
-                </svg>
-              </button>
+              <div class="contraction-actions">
+                <button class="btn-icon-edit" (click)="editContraction(contraction)" title="Edit duration">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                </button>
+                <button class="btn-icon-delete" (click)="deleteContraction(contraction.id)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
          <!-- End Session Button -->
          <div class="session-actions">
-           <button class="btn btn-primary" (click)="markBirthTime()" *ngIf="currentSession && !currentSession.actualBirthTime">
-             👶 Mark Birth Time
-           </button>
-           <div class="birth-time-display" *ngIf="currentSession?.actualBirthTime">
-             <span class="birth-icon">🎉</span>
-             <div class="birth-info">
-               <div class="birth-label">Baby Born</div>
-               <div class="birth-time">{{ currentSession.actualBirthTime | date:'HH:mm dd-MM-yyyy' }}</div>
-               <div class="prediction-accuracy" *ngIf="prediction">
-                 <span class="accuracy-label">Predicted:</span>
-                 <span class="accuracy-time">{{ prediction.estimatedTime | date:'HH:mm' }}</span>
-                 <span class="accuracy-diff" [class.accurate]="isPredictionAccurate()">({{ getPredictionDifference() }})</span>
-               </div>
-             </div>
-             <button class="btn-icon-small" (click)="clearBirthTime()" title="Clear birth time">
-               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                 <line x1="18" y1="6" x2="6" y2="18"></line>
-                 <line x1="6" y1="6" x2="18" y2="18"></line>
-               </svg>
-             </button>
-           </div>
            <button class="btn btn-secondary" (click)="endSession()">End Session</button>
            <button class="btn btn-xs btn-ghost" (click)="exportCurrentSessionCSV()" *ngIf="currentSession">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
