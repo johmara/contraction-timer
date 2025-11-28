@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { Contraction, ContractionSession, BirthPrediction } from '../models/contraction.model';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -11,7 +12,16 @@ export class ContractionService {
   public currentSession$ = this.currentSessionSubject.asObservable();
 
   constructor() {
+    console.log('🔧 ContractionService constructor called');
+    console.log('🔧 Environment localMode:', environment.localMode);
+    
     this.loadActiveSession();
+    
+    // In local mode, seed with realistic test data if no data exists
+    if (environment.localMode) {
+      console.log('🧪 Local Mode enabled - checking for test data');
+      this.seedTestDataIfEmpty();
+    }
   }
 
   startNewSession(): ContractionSession {
@@ -244,5 +254,111 @@ export class ContractionService {
     if (currentSession && currentSession.id === sessionId) {
       this.currentSessionSubject.next(null);
     }
+  }
+
+  private seedTestDataIfEmpty(): void {
+    const sessions = this.getAllSessions();
+    console.log('🧪 Checking sessions count:', sessions.length);
+    
+    if (sessions.length === 0) {
+      console.log('🧪 Local Mode: Seeding realistic test data');
+      
+      // Create a realistic labor progression session from 8 hours ago
+      const sessionStart = new Date();
+      sessionStart.setHours(sessionStart.getHours() - 8);
+      
+      const testSession: ContractionSession = {
+        id: 'test-session-1',
+        startDate: sessionStart,
+        contractions: this.generateRealisticContractions(sessionStart, 120), // 120 contractions over ~8 hours
+        isActive: false
+      };
+      
+      // Create another session from yesterday
+      const yesterdayStart = new Date();
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      yesterdayStart.setHours(14, 30, 0, 0);
+      
+      const testSession2: ContractionSession = {
+        id: 'test-session-2',
+        startDate: yesterdayStart,
+        contractions: this.generateRealisticContractions(yesterdayStart, 100), // 100 contractions
+        isActive: false
+      };
+      
+      // Save both sessions
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify([testSession, testSession2]));
+      console.log('🧪 Test data seeded! Created 2 sessions');
+      console.log('🧪 Session 1:', testSession.contractions.length, 'contractions');
+      console.log('🧪 Session 2:', testSession2.contractions.length, 'contractions');
+    } else {
+      console.log('🧪 Existing sessions found, skipping seed');
+    }
+  }
+
+  private generateRealisticContractions(startTime: Date, count: number = 25): Contraction[] {
+    const contractions: Contraction[] = [];
+    let currentTime = new Date(startTime);
+    
+    // Simulate realistic labor progression with three phases:
+    // Phase 1 (0-40%): Early labor - mild, irregular (20-45s, every 10-15 min)
+    // Phase 2 (40-75%): Active labor - stronger, regular (45-70s, every 3-5 min)  
+    // Phase 3 (75-100%): Transition - intense, frequent (60-90s, every 2-3 min)
+    
+    for (let i = 0; i < count; i++) {
+      const progressRatio = i / count;
+      
+      // Determine phase and base parameters
+      let baseDuration: number;
+      let baseFrequency: number;
+      let variationFactor: number;
+      
+      if (progressRatio < 0.4) {
+        // Early labor: short durations, long intervals, high variation
+        baseDuration = 20 + progressRatio * 62.5; // 20 -> 45 seconds
+        baseFrequency = 900 - progressRatio * 500; // 15 min -> 10 min  
+        variationFactor = 0.4; // High variation (±40%)
+      } else if (progressRatio < 0.75) {
+        // Active labor: moderate durations, shorter intervals, less variation
+        const activeProgress = (progressRatio - 0.4) / 0.35;
+        baseDuration = 45 + activeProgress * 25; // 45 -> 70 seconds
+        baseFrequency = 300 - activeProgress * 120; // 5 min -> 3 min
+        variationFactor = 0.25; // Moderate variation (±25%)
+      } else {
+        // Transition: long durations, very short intervals, low variation
+        const transitionProgress = (progressRatio - 0.75) / 0.25;
+        baseDuration = 70 + transitionProgress * 20; // 70 -> 90 seconds
+        baseFrequency = 180 - transitionProgress * 60; // 3 min -> 2 min
+        variationFactor = 0.15; // Low variation (±15%)
+      }
+      
+      // Apply variation
+      const durationVariation = (Math.random() - 0.5) * 2 * baseDuration * variationFactor;
+      const duration = Math.max(15, Math.min(120, Math.floor(baseDuration + durationVariation)));
+      
+      const frequencyVariation = (Math.random() - 0.5) * 2 * baseFrequency * variationFactor;
+      const frequency = Math.max(120, Math.floor(baseFrequency + frequencyVariation));
+      
+      // Add frequency time to current time (time between contractions)
+      if (i > 0) {
+        currentTime = new Date(currentTime.getTime() + frequency * 1000);
+      }
+      
+      const contractionStart = new Date(currentTime);
+      const endTime = new Date(contractionStart.getTime() + duration * 1000);
+      
+      contractions.push({
+        id: `contraction-${i + 1}`,
+        startTime: contractionStart,
+        endTime: endTime,
+        duration: duration,
+        frequency: i > 0 ? Math.floor(frequency) : undefined
+      });
+      
+      // Update currentTime to end of contraction
+      currentTime = endTime;
+    }
+    
+    return contractions;
   }
 }

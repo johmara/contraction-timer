@@ -31,6 +31,8 @@
     "@angular/platform-browser": "~20.3.14",
     "@angular/router": "~20.3.14",
     "chart.js": "^4.5.1",
+    "chartjs-adapter-date-fns": "^3.0.0",
+    "date-fns": "^4.1.0",
     "firebase": "~11.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

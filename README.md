@@ -228,3 +228,35 @@ For issues, please check:
 - Browser console for JavaScript errors
 - GitHub Actions logs for deployment issues
 
+### Troubleshooting Local Mode
+
+If you're not seeing test data or charts in local mode:
+
+1. **Clear localStorage**: Open `debug-localStorage.html` in your browser to:
+   - View current localStorage data
+   - Clear all data
+   - Manually seed test data
+   
+2. **Check browser console**: Look for console logs with 🧪 and 📊 emojis that show:
+   - Whether local mode is enabled
+   - If test data was seeded
+   - Chart initialization status
+   
+3. **Manual data seeding**:
+   ```javascript
+   // Open browser console (F12) and run:
+   localStorage.clear()
+   // Then refresh the page
+   ```
+
+4. **Verify environment**: Check that `src/environments/environment.ts` has:
+   ```typescript
+   localMode: true
+   ```
+
+5. **Charts not displaying**: 
+   - Make sure you're on the "History" tab
+   - Click "View Chart" on a session
+   - Check console for chart initialization logs
+   - Ensure the session has contractions data
+

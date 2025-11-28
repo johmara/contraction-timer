@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contraction Timer - LocalStorage Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #ff6b9d;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover {
+            background: #ff5285;
+        }
+        button.secondary {
+            background: #8bc7ff;
+        }
+        button.secondary:hover {
+            background: #6bb5ff;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 6px;
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Contraction Timer - LocalStorage Debug Tool</h1>
+        
+        <div id="status"></div>
+        
+        <h2>Actions</h2>
+        <button onclick="viewData()">View Data</button>
+        <button onclick="clearData()" class="secondary">Clear All Data</button>
+        <button onclick="seedTestData()" class="secondary">Seed Test Data</button>
+        
+        <h2>Data</h2>
+        <pre id="output">Click "View Data" to see localStorage contents</pre>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'contraction_sessions';
+
+        function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status' + (isError ? ' error' : '');
+            statusDiv.textContent = message;
+            setTimeout(() => statusDiv.textContent = '', 3000);
+        }
+
+        function viewData() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            const output = document.getElementById('output');
+            
+            if (data) {
+                try {
+                    const parsed = JSON.parse(data);
+                    output.textContent = JSON.stringify(parsed, null, 2);
+                    showStatus(`Found ${parsed.length} session(s) in localStorage`);
+                } catch (e) {
+                    output.textContent = 'Error parsing data: ' + e.message + '\n\nRaw data:\n' + data;
+                    showStatus('Error parsing localStorage data', true);
+                }
+            } else {
+                output.textContent = 'No data found in localStorage';
+                showStatus('localStorage is empty');
+            }
+        }
+
+        function clearData() {
+            if (confirm('Are you sure you want to clear ALL contraction data?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                document.getElementById('output').textContent = 'Data cleared!';
+                showStatus('All data cleared successfully');
+            }
+        }
+
+        function seedTestData() {
+            // Create realistic test sessions
+            const sessionStart = new Date();
+            sessionStart.setHours(sessionStart.getHours() - 3);
+            
+            const contractions1 = generateRealisticContractions(sessionStart, 25);
+            
+            const testSession1 = {
+                id: 'test-session-1',
+                startDate: sessionStart.toISOString(),
+                contractions: contractions1,
+                isActive: false
+            };
+            
+            const yesterdayStart = new Date();
+            yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+            yesterdayStart.setHours(14, 30, 0, 0);
+            
+            const contractions2 = generateRealisticContractions(yesterdayStart, 15);
+            
+            const testSession2 = {
+                id: 'test-session-2',
+                startDate: yesterdayStart.toISOString(),
+                contractions: contractions2,
+                isActive: false
+            };
+            
+            localStorage.setItem(STORAGE_KEY, JSON.stringify([testSession1, testSession2]));
+            showStatus('Test data seeded! Created 2 sessions');
+            viewData();
+        }
+
+        function generateRealisticContractions(startTime, count) {
+            const contractions = [];
+            let currentTime = new Date(startTime);
+            
+            for (let i = 0; i < count; i++) {
+                const progressRatio = i / count;
+                const baseFrequency = 900 - (progressRatio * 720);
+                const frequencyVariation = (Math.random() - 0.5) * 120;
+                const frequency = Math.max(180, baseFrequency + frequencyVariation);
+                
+                if (i > 0) {
+                    currentTime = new Date(currentTime.getTime() + frequency * 1000);
+                }
+                
+                const startTimeForContraction = new Date(currentTime);
+                
+                const baseDuration = 35 + (progressRatio * 40);
+                const durationVariation = (Math.random() - 0.5) * 15;
+                const duration = Math.max(30, Math.floor(baseDuration + durationVariation));
+                
+                const endTime = new Date(startTimeForContraction.getTime() + duration * 1000);
+                
+                contractions.push({
+                    id: `contraction-${i + 1}`,
+                    startTime: startTimeForContraction.toISOString(),
+                    endTime: endTime.toISOString(),
+                    duration: duration,
+                    frequency: i > 0 ? Math.floor(frequency) : undefined
+                });
+                
+                currentTime = endTime;
+            }
+            
+            return contractions;
+        }
+
+        // Auto-view data on load
+        window.onload = viewData;
+    </script>
+</body>
+</html>

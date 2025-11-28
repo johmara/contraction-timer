@@ -1,198 +1,228 @@
-<!-- Show login if not authenticated -->
-<app-login *ngIf="!isAuthenticated"></app-login>
-
 <!-- Show app if authenticated -->
-<div class="container" *ngIf="isAuthenticated">
+<div class="app-container" *ngIf="isAuthenticated">
   <!-- Local Mode Banner -->
   <div *ngIf="isLocalMode" class="local-mode-banner">
-    🧪 Local Development Mode - No Firebase required - Data stored in browser
+    🧪 Local Development Mode
   </div>
 
-  <header>
-    <div class="header-content">
-      <div>
-        <h1>Contraction Timer</h1>
-        <p class="subtitle">Track contractions and predict birth timing</p>
-      </div>
-      <div class="user-menu">
-        <img *ngIf="userPhotoURL" [src]="userPhotoURL" alt="User avatar" class="user-avatar">
+  <!-- Floating User Avatar -->
+  <div class="floating-avatar" (click)="toggleUserMenu()">
+    <img *ngIf="userPhotoURL" [src]="userPhotoURL" alt="User avatar" class="avatar-image">
+    <div *ngIf="!userPhotoURL" class="avatar-placeholder">
+      {{ userName?.charAt(0) || 'U' }}
+    </div>
+    
+    <!-- User Menu Dropdown -->
+    <div class="user-menu-dropdown" *ngIf="showUserMenu">
+      <div class="user-menu-header">
         <span class="user-name">{{ userName }}</span>
-        <button class="btn btn-logout btn-small" (click)="signOut()">Sign Out</button>
+      </div>
+      <button class="btn btn-logout" (click)="signOut()">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Timer Card (Always Visible at Top) -->
+    <div class="timer-card" *ngIf="activeTab === 'current'">
+      <div class="timer-display">
+        <div class="timer-value">
+          {{ activeContraction ? formatDuration(getContractionDuration(activeContraction)) : '00:00' }}
+        </div>
+      </div>
+      
+      <button 
+        *ngIf="!currentSession"
+        class="btn btn-primary btn-action"
+        (click)="startSession()">
+        Start Session
+      </button>
+      <button 
+        *ngIf="currentSession && !activeContraction" 
+        class="btn btn-start btn-action" 
+        (click)="startContraction()">
+        Start
+      </button>
+      <button 
+        *ngIf="activeContraction" 
+        class="btn btn-stop btn-action" 
+        (click)="endContraction()">
+        Stop
+      </button>
+    </div>
+
+    <!-- Current Session Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'current'">
+      <!-- No Active Session -->
+      <div *ngIf="!currentSession" class="welcome">
+        <p class="info">Start a session to begin tracking</p>
+      </div>
+
+      <!-- Active Session -->
+      <div *ngIf="currentSession" class="session-active">
+        <!-- Statistics -->
+        <div class="stats-section" *ngIf="currentSession.contractions.length > 0">
+          <div class="stat-card">
+            <div class="stat-value">{{ currentSession.contractions.length }}</div>
+            <div class="stat-label">Total</div>
+          </div>
+          <div class="stat-card" *ngIf="prediction">
+            <div class="stat-value">{{ formatFrequency(prediction.avgFrequency) }}</div>
+            <div class="stat-label">Frequency</div>
+          </div>
+          <div class="stat-card" *ngIf="prediction">
+            <div class="stat-value">{{ formatDuration(prediction.avgDuration) }}</div>
+            <div class="stat-label">Duration</div>
+          </div>
+        </div>
+
+        <!-- Birth Prediction -->
+        <div class="prediction-section" *ngIf="prediction">
+          <div class="prediction-card" [class.high-confidence]="prediction.confidence === 'high'"
+               [class.medium-confidence]="prediction.confidence === 'medium'"
+               [class.low-confidence]="prediction.confidence === 'low'">
+            <div class="prediction-icon">🎯</div>
+            <div class="prediction-content">
+              <div class="prediction-time">
+                {{ prediction.estimatedTime | date:'short' }}
+              </div>
+              <div class="prediction-label">Estimated Birth Time</div>
+              <div class="prediction-reasoning">{{ prediction.reasoning }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contraction History -->
+        <div class="history-section" *ngIf="currentSession.contractions.length > 0">
+          <h3>Recent Contractions</h3>
+          <div class="contractions-list">
+            <div class="contraction-item" *ngFor="let contraction of getReversedContractions().slice(0, 5); let i = index">
+              <div class="contraction-time">
+                {{ contraction.startTime | date:'HH:mm' }}
+              </div>
+              <div class="contraction-details">
+                <div class="contraction-stat">
+                  <span class="label">Duration:</span>
+                  <span class="value">{{ contraction.duration ? formatDuration(contraction.duration) : 'N/A' }}</span>
+                </div>
+                <div class="contraction-stat" *ngIf="contraction.frequency">
+                  <span class="label">Frequency:</span>
+                  <span class="value">{{ formatFrequency(contraction.frequency) }}</span>
+                </div>
+              </div>
+              <button class="btn-icon-delete" (click)="deleteContraction(contraction.id)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- End Session Button -->
+        <div class="session-actions">
+          <button class="btn btn-secondary" (click)="endSession()">End Session</button>
+        </div>
       </div>
     </div>
-  </header>
 
-  <!-- Tab Navigation -->
-  <nav class="tabs">
+    <!-- History Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'history'">
+      <h3>Past Sessions</h3>
+      
+      <div *ngIf="sessionHistory.length === 0" class="empty-state">
+        <p class="info">No previous sessions</p>
+      </div>
+
+      <div *ngIf="sessionHistory.length > 0" class="session-history">
+        <div class="session-card" *ngFor="let session of sessionHistory">
+          <div class="session-header">
+            <div class="session-date">
+              {{ session.startDate | date:'MMM d, y' }}
+            </div>
+            <div class="session-time">
+              {{ session.startDate | date:'HH:mm' }}
+            </div>
+          </div>
+          <div class="session-stats">
+            <div class="stat-inline">
+              <span class="label">Duration:</span>
+              <span class="value">{{ getSessionDuration(session) }}</span>
+            </div>
+            <div class="stat-inline">
+              <span class="label">Contractions:</span>
+              <span class="value">{{ session.contractions.length }}</span>
+            </div>
+          </div>
+          <div class="session-actions">
+            <button class="btn btn-sm btn-primary" (click)="viewSessionChart(session)">
+              {{ chartSession?.id === session.id ? 'Hide Chart' : 'View Chart' }}
+            </button>
+            <button class="btn btn-sm btn-ghost" (click)="deleteSession(session.id)">
+              Delete
+            </button>
+          </div>
+          
+          <!-- Inline Chart Display -->
+          <div class="session-chart-container" *ngIf="chartSession?.id === session.id">
+            <div class="chart-divider"></div>
+            <app-chart [session]="chartSession"></app-chart>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart Tab -->
+    <div class="tab-content" *ngIf="activeTab === 'chart'">
+      <h3>Duration Chart</h3>
+      
+      <div *ngIf="!currentSession || currentSession.contractions.length === 0" class="empty-state">
+        <p class="info">No active session with contractions</p>
+        <p class="info-small">Start tracking contractions to see the chart</p>
+      </div>
+
+      <div *ngIf="currentSession && currentSession.contractions.length > 0">
+        <div class="chart-info">
+          <div class="chart-session-date">
+            Current Session - {{ currentSession.startDate | date:'MMM d, y - HH:mm' }}
+          </div>
+        </div>
+        <app-chart [session]="currentSession"></app-chart>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fixed Bottom Navigation Bar -->
+  <nav class="bottom-nav">
     <button 
-      class="tab" 
+      class="nav-item" 
       [class.active]="activeTab === 'current'"
       (click)="activeTab = 'current'">
-      Current Session
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      <span class="nav-label">Session</span>
     </button>
     <button 
-      class="tab" 
+      class="nav-item" 
       [class.active]="activeTab === 'history'"
       (click)="activeTab = 'history'">
-      History
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path>
+      </svg>
+      <span class="nav-label">History</span>
     </button>
     <button 
-      class="tab" 
+      class="nav-item" 
       [class.active]="activeTab === 'chart'"
       (click)="activeTab = 'chart'">
-      Chart
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+      <span class="nav-label">Chart</span>
     </button>
   </nav>
-
-  <!-- Current Session Tab -->
-  <div class="tab-content" *ngIf="activeTab === 'current'">
-    <!-- No Active Session -->
-    <div *ngIf="!currentSession" class="welcome">
-      <p class="info">Start a new session to begin tracking contractions</p>
-      <button class="btn btn-primary btn-large" (click)="startSession()">Start New Session</button>
-    </div>
-
-    <!-- Active Session -->
-    <div *ngIf="currentSession" class="session-active">
-    <!-- Timer Controls -->
-    <div class="timer-section">
-      <div class="timer-display" *ngIf="activeContraction">
-        <div class="timer-label">Contraction in progress</div>
-        <div class="timer-value">{{ formatDuration(getContractionDuration(activeContraction)) }}</div>
-      </div>
-
-      <div class="button-group">
-        <button 
-          *ngIf="!activeContraction" 
-          class="btn btn-start" 
-          (click)="startContraction()">
-          Start Contraction
-        </button>
-        <button 
-          *ngIf="activeContraction" 
-          class="btn btn-stop" 
-          (click)="endContraction()">
-          End Contraction
-        </button>
-      </div>
-    </div>
-
-    <!-- Statistics -->
-    <div class="stats-section" *ngIf="currentSession.contractions.length > 0">
-      <div class="stat-card">
-        <div class="stat-label">Total Contractions</div>
-        <div class="stat-value">{{ currentSession.contractions.length }}</div>
-      </div>
-      <div class="stat-card" *ngIf="prediction">
-        <div class="stat-label">Avg Frequency</div>
-        <div class="stat-value">{{ formatFrequency(prediction.avgFrequency) }}</div>
-      </div>
-      <div class="stat-card" *ngIf="prediction">
-        <div class="stat-label">Avg Duration</div>
-        <div class="stat-value">{{ formatDuration(prediction.avgDuration) }}</div>
-      </div>
-    </div>
-
-    <!-- Birth Prediction -->
-    <div class="prediction-section" *ngIf="prediction">
-      <h2>Birth Prediction</h2>
-      <div class="prediction-card" [class.high-confidence]="prediction.confidence === 'high'"
-           [class.medium-confidence]="prediction.confidence === 'medium'"
-           [class.low-confidence]="prediction.confidence === 'low'">
-        <div class="prediction-time">
-          <strong>Estimated Birth Time:</strong>
-          {{ prediction.estimatedTime | date:'short' }}
-        </div>
-        <div class="prediction-confidence">
-          <strong>Confidence:</strong> 
-          <span class="confidence-badge">{{ prediction.confidence | uppercase }}</span>
-        </div>
-        <div class="prediction-trend">
-          <strong>Trend:</strong> {{ prediction.trend }}
-        </div>
-        <div class="prediction-reasoning">
-          {{ prediction.reasoning }}
-        </div>
-      </div>
-      <p class="disclaimer">
-        ⚠️ This prediction is for informational purposes only. Please consult with your healthcare provider 
-        and follow their guidance for when to go to the hospital.
-      </p>
-    </div>
-
-    <!-- Contraction History -->
-    <div class="history-section" *ngIf="currentSession.contractions.length > 0">
-      <h2>Contraction History</h2>
-      <div class="contractions-list">
-        <div class="contraction-item" *ngFor="let contraction of getReversedContractions(); let i = index">
-          <div class="contraction-number">#{{ currentSession.contractions.length - i }}</div>
-          <div class="contraction-details">
-            <div class="contraction-time">
-              <strong>Started:</strong> {{ contraction.startTime | date:'short' }}
-            </div>
-            <div class="contraction-metrics">
-              <span class="metric">
-                <strong>Duration:</strong> 
-                {{ contraction.duration ? formatDuration(contraction.duration) : 
-                   (!contraction.endTime ? formatDuration(getContractionDuration(contraction)) : 'N/A') }}
-              </span>
-              <span class="metric" *ngIf="contraction.frequency">
-                <strong>Frequency:</strong> {{ formatFrequency(contraction.frequency) }}
-              </span>
-            </div>
-          </div>
-          <button class="btn btn-delete btn-small" (click)="deleteContraction(contraction.id)">
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- End Session Button -->
-    <div class="session-actions">
-      <button class="btn btn-secondary" (click)="endSession()">End Session</button>
-    </div>
-  </div>
-  </div>
-
-  <!-- History Tab -->
-  <div class="tab-content" *ngIf="activeTab === 'history'">
-    <div *ngIf="sessionHistory.length === 0" class="empty-state">
-      <p class="info">No previous sessions found</p>
-      <p class="info-small">Complete a session to see it appear here</p>
-    </div>
-
-    <div *ngIf="sessionHistory.length > 0" class="session-history">
-      <div class="session-card" *ngFor="let session of sessionHistory">
-        <div class="session-header">
-          <h3>{{ session.startDate | date:'medium' }}</h3>
-          <button class="btn btn-delete btn-small" (click)="deleteSession(session.id)">
-            Delete
-          </button>
-        </div>
-        <div class="session-stats">
-          <div class="stat-item">
-            <span class="stat-label">Duration:</span>
-            <span class="stat-value">{{ getSessionDuration(session) }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Contractions:</span>
-            <span class="stat-value">{{ session.contractions.length }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Chart Tab -->
-  <div class="tab-content" *ngIf="activeTab === 'chart'">
-    <div *ngIf="!currentSession" class="empty-state">
-      <p class="info">No active session</p>
-      <p class="info-small">Start a session to see contraction data visualized</p>
-    </div>
-
-    <div *ngIf="currentSession">
-      <app-chart [session]="currentSession"></app-chart>
-    </div>
-  </div>
 </div>

@@ -24,6 +24,8 @@ export class App implements OnInit, OnDestroy {
   activeTab: TabType = 'current';
   allSessions: ContractionSession[] = [];
   isLocalMode = environment.localMode;
+  chartSession: ContractionSession | null = null;
+  showUserMenu = false;
   private subscriptions = new Subscription();
 
   constructor(
@@ -32,12 +34,16 @@ export class App implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    console.log('🔧 App ngOnInit called');
+    console.log('🔧 Local Mode:', this.isLocalMode);
+    
     // Subscribe to auth state
     this.subscriptions.add(
       this.authService.currentUser$.subscribe(user => {
         this.isAuthenticated = !!user;
         this.userName = user?.displayName || null;
         this.userPhotoURL = user?.photoURL || null;
+        console.log('🔧 Auth state changed:', { isAuthenticated: this.isAuthenticated, userName: this.userName });
       })
     );
 
@@ -68,10 +74,16 @@ export class App implements OnInit, OnDestroy {
   loadAllSessions(): void {
     this.allSessions = this.contractionService.getAllSessions()
       .sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+    console.log('🔧 Loaded sessions:', this.allSessions.length);
+    console.log('🔧 Session history (inactive):', this.sessionHistory.length);
   }
 
   setActiveTab(tab: TabType): void {
     this.activeTab = tab;
+    // Reset chartSession when switching to chart tab to show current session
+    if (tab === 'chart' && !this.chartSession) {
+      this.chartSession = this.currentSession;
+    }
   }
 
   async signOut(): Promise<void> {
@@ -179,5 +191,18 @@ export class App implements OnInit, OnDestroy {
       return `${hours}h ${minutes}m`;
     }
     return `${minutes}m`;
+  }
+
+  viewSessionChart(session: ContractionSession): void {
+    // Toggle chart visibility for the session
+    if (this.chartSession?.id === session.id) {
+      this.chartSession = null; // Hide chart if clicking the same session
+    } else {
+      this.chartSession = session; // Show chart for this session
+    }
+  }
+
+  toggleUserMenu(): void {
+    this.showUserMenu = !this.showUserMenu;
   }
 }
