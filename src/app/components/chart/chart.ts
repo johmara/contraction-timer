@@ -52,12 +52,12 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       type: 'scatter',
       data: {
         datasets: [
-          // Trend envelope (smoothed line)
+          // 0: Trend envelope (smoothed line)
           {
             label: 'Trend Envelope',
             data: data.trendLine,
             type: 'line',
-            borderColor: 'rgba(255, 193, 7, 0.0)', // Transparent, we focus on the funnel
+            borderColor: 'rgba(255, 193, 7, 0.0)', 
             backgroundColor: 'transparent',
             borderWidth: 0,
             fill: false,
@@ -65,43 +65,81 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             tension: 0.5,
             order: 2
           },
-          // Upper confidence band (Yellow Funnel Top)
+          // 1: Upper confidence band
           {
             label: 'Upper Band',
             data: data.upperBand,
             type: 'line',
-            borderColor: 'rgba(230, 180, 0, 0.8)', // Clinical Yellow/Gold
+            borderColor: 'rgba(230, 180, 0, 0.8)',
             backgroundColor: 'transparent',
             borderWidth: 2,
-            borderDash: [], // Solid line
+            borderDash: [], 
             fill: false,
             pointRadius: 0,
             tension: 0.5,
             order: 1
           },
-          // Lower confidence band (Yellow Funnel Bottom)
+          // 2: Lower confidence band
           {
             label: 'Lower Band',
             data: data.lowerBand,
             type: 'line',
-            borderColor: 'rgba(230, 180, 0, 0.8)', // Clinical Yellow/Gold
+            borderColor: 'rgba(230, 180, 0, 0.8)',
             borderWidth: 2,
-            borderDash: [], // Solid line
+            borderDash: [],
             fill: false,
             pointRadius: 0,
             tension: 0.5,
             order: 3
           },
-          // Scatter dots (Clinical Blue)
+          // 3: Scatter dots
           {
             label: 'Contractions',
             data: data.scatterPoints,
-            backgroundColor: 'rgba(33, 150, 243, 0.8)', // Bright Blue
-            borderColor: 'rgba(21, 101, 192, 0.8)', // Darker Blue border
+            backgroundColor: 'rgba(33, 150, 243, 0.8)',
+            borderColor: 'rgba(21, 101, 192, 0.8)',
             borderWidth: 1,
             pointRadius: 4,
             pointHoverRadius: 6,
             order: 4
+          },
+          // 4: Projected Upper (Dashed)
+          {
+            label: 'Projected Upper',
+            data: data.projectedUpper,
+            type: 'line',
+            borderColor: 'rgba(230, 180, 0, 0.5)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            pointRadius: 0,
+            tension: 0.5,
+            order: 5
+          },
+          // 5: Projected Lower (Dashed)
+          {
+            label: 'Projected Lower',
+            data: data.projectedLower,
+            type: 'line',
+            borderColor: 'rgba(230, 180, 0, 0.5)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            pointRadius: 0,
+            tension: 0.5,
+            order: 6
+          },
+          // 6: Intersection Prediction Point
+          {
+            label: 'Predicted Delivery',
+            data: data.intersection,
+            type: 'scatter',
+            backgroundColor: 'rgba(255, 87, 34, 1)', // Red/Orange
+            borderColor: 'rgba(255, 255, 255, 1)',
+            borderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            order: 7
           }
         ]
       },
@@ -117,7 +155,7 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
           y: {
             beginAtZero: true,
             min: 0,
-            max: 160, // Accommodate up to 2:40 for extreme intensity
+            max: 160, 
             grace: '5%',
             title: {
               display: true,
@@ -126,10 +164,10 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
                 size: 13,
                 weight: 'bold'
               },
-              color: '#546e7a' // Blue-grey
+              color: '#546e7a'
             },
             grid: {
-              color: 'rgba(33, 150, 243, 0.1)', // Faint blue grid
+              color: 'rgba(33, 150, 243, 0.1)',
               lineWidth: 1
             },
             ticks: {
@@ -161,10 +199,10 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
                 size: 13,
                 weight: 'bold'
               },
-              color: '#546e7a' // Blue-grey
+              color: '#546e7a'
             },
             grid: {
-              color: 'rgba(33, 150, 243, 0.1)', // Faint blue grid
+              color: 'rgba(33, 150, 243, 0.1)',
               lineWidth: 1
             },
             ticks: {
@@ -179,7 +217,7 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         },
         plugins: {
           legend: {
-            display: false, // Hide legend to match clean look
+            display: false,
           },
           tooltip: {
             backgroundColor: 'rgba(33, 48, 60, 0.95)',
@@ -241,6 +279,9 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     this.chart.data.datasets[1].data = data.upperBand;
     this.chart.data.datasets[2].data = data.lowerBand;
     this.chart.data.datasets[3].data = data.scatterPoints;
+    this.chart.data.datasets[4].data = data.projectedUpper;
+    this.chart.data.datasets[5].data = data.projectedLower;
+    this.chart.data.datasets[6].data = data.intersection;
     
     this.chart.update();
   }
@@ -249,14 +290,20 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     scatterPoints: Point[], 
     trendLine: Point[],
     upperBand: Point[],
-    lowerBand: Point[]
+    lowerBand: Point[],
+    projectedUpper: Point[],
+    projectedLower: Point[],
+    intersection: Point[]
   } {
     if (!this.session?.contractions.length) {
       return { 
         scatterPoints: [], 
         trendLine: [],
         upperBand: [],
-        lowerBand: []
+        lowerBand: [],
+        projectedUpper: [],
+        projectedLower: [],
+        intersection: []
       };
     }
 
@@ -275,7 +322,10 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         scatterPoints,
         trendLine: [],
         upperBand: [],
-        lowerBand: []
+        lowerBand: [],
+        projectedUpper: [],
+        projectedLower: [],
+        intersection: []
       };
     }
 
@@ -329,32 +379,50 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     });
 
     // 3. Prediction: Project forward to find "Intersection"
-    // In this context, "Intersection" usually means when the curve hits the delivery threshold
-    // or when the acceleration becomes vertical (singularity).
-    // We'll project 2 hours into the future.
-    const lastTime = scatterPoints[scatterPoints.length - 1].x;
-    const futureTime = lastTime + 2 * 60 * 60 * 1000; // +2 hours
-    const steps = 20;
+    // The "Funnel" narrows as labor becomes regular (Variance decreases).
+    // We project the Upper and Lower bands forward to find where they intersect (Zero Variance).
+    // This theoretical point of "Perfect Regularity" is our Delivery Prediction.
     
-    for (let i = 1; i <= steps; i++) {
-      const futureT = lastTime + (i * (futureTime - lastTime) / steps);
-      // We can visualize this projection if we extend the datasets, 
-      // but for now we'll just keep the smooth lines for the existing data range
-      // as adding "future" points might confuse the X-axis scaling unless handled carefully.
-      // However, we can log the predicted time to 90s (Transition).
+    const lastTime = scatterPoints[scatterPoints.length - 1].x;
+    // Cap projection at 6 hours to avoid infinite lines if they don't converge
+    const maxProjection = 6 * 60 * 60 * 1000; 
+    const stepSize = 5 * 60 * 1000; // Check every 5 mins
+    
+    let intersectionX = -1;
+    let intersectionY = -1;
+
+    const projectedUpper: Point[] = [];
+    const projectedLower: Point[] = [];
+
+    // Start projection from the last actual point
+    projectedUpper.push({ x: lastTime, y: upperFit.predict(lastTime) });
+    projectedLower.push({ x: lastTime, y: lowerFit.predict(lastTime) });
+
+    for (let t = lastTime + stepSize; t <= lastTime + maxProjection; t += stepSize) {
+      const uY = upperFit.predict(t);
+      const lY = lowerFit.predict(t);
       
-      const predY = trendFit.predict(futureT);
-      if (predY >= 90) {
-        // This would be the predicted transition time
-        // console.log('Predicted Transition:', new Date(futureT));
+      // If bands cross (Upper goes below Lower), we found intersection
+      if (uY <= lY) {
+        intersectionX = t;
+        intersectionY = (uY + lY) / 2; // Midpoint
+        projectedUpper.push({ x: intersectionX, y: intersectionY });
+        projectedLower.push({ x: intersectionX, y: intersectionY });
+        break;
       }
+      
+      projectedUpper.push({ x: t, y: uY });
+      projectedLower.push({ x: t, y: lY });
     }
 
     return { 
       scatterPoints, 
       trendLine,
       upperBand,
-      lowerBand
+      lowerBand,
+      projectedUpper,
+      projectedLower,
+      intersection: intersectionX > 0 ? [{ x: intersectionX, y: intersectionY }] : []
     };
   }
 }
