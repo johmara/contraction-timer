@@ -353,46 +353,49 @@ export class ContractionService {
     const contractions: Contraction[] = [];
     let currentTime = new Date(startTime);
     
-    // Simulate realistic labor progression with three phases:
-    // Phase 1 (0-40%): Early labor - highly variable (30-75s, every 8-15 min)
-    // Phase 2 (40-75%): Active labor - becoming regular (50-75s, every 3-5 min)  
-    // Phase 3 (75-100%): Transition - intense, frequent (70-90s, every 2-3 min)
+    // Simulate realistic labor progression based on the reference graph
+    // The graph shows an exponential increase in duration towards the end (the "funnel" effect)
     
     for (let i = 0; i < count; i++) {
       const progressRatio = i / count;
       
-      // Determine phase and base parameters
       let baseDuration: number;
       let baseFrequency: number;
       let variationFactor: number;
       
-      if (progressRatio < 0.4) {
-        // Early labor: wide range, highly irregular (30-75s, every 8-15 min)
-        baseDuration = 30 + progressRatio * 112.5; // 30 -> 75 seconds
-        baseFrequency = 900 - progressRatio * 300; // 15 min -> 10 min  
-        variationFactor = 0.5; // High variation (±50% - very irregular)
-      } else if (progressRatio < 0.75) {
-        // Active labor: narrower range, becoming consistent (50-75s, every 3-5 min)
-        const activeProgress = (progressRatio - 0.4) / 0.35;
-        baseDuration = 50 + activeProgress * 25; // 50 -> 75 seconds
-        baseFrequency = 300 - activeProgress * 120; // 5 min -> 3 min
-        variationFactor = 0.2; // Lower variation (±20% - more consistent)
+      // We model the curve seen in the reference image
+      if (progressRatio < 0.5) {
+        // Phase 1: Latent/Early (Flat trend, high scatter)
+        // Duration: Centered ~50s, ranging 30s-75s
+        baseDuration = 50 + (progressRatio * 10); // Slight drift up 50->55
+        baseFrequency = 600 - (progressRatio * 180); // 10 min -> 7 min
+        variationFactor = 0.5; // High scatter (±50%) -> range ~25s-75s
+      } else if (progressRatio < 0.8) {
+        // Phase 2: Active (Curve begins to steepen)
+        // Duration: Rises from ~55s to ~80s
+        const phaseProgress = (progressRatio - 0.5) / 0.3;
+        baseDuration = 55 + (phaseProgress * 25); // 55 -> 80
+        baseFrequency = 420 - (phaseProgress * 120); // 7 min -> 5 min
+        variationFactor = 0.3; // Moderate scatter (±30%)
       } else {
-        // Transition: strong, very frequent (70-90s, every 2-3 min)
-        const transitionProgress = (progressRatio - 0.75) / 0.25;
-        baseDuration = 70 + transitionProgress * 20; // 70 -> 90 seconds
-        baseFrequency = 180 - transitionProgress * 60; // 3 min -> 2 min
-        variationFactor = 0.1; // Low variation (±10% - very consistent)
+        // Phase 3: Transition (Exponential climb)
+        // Duration: Rises sharply from ~80s to ~130s+
+        const phaseProgress = (progressRatio - 0.8) / 0.2;
+        // Exponential-like curve for the end
+        baseDuration = 80 + (Math.pow(phaseProgress, 1.5) * 50); // 80 -> 130
+        baseFrequency = 300 - (phaseProgress * 120); // 5 min -> 3 min
+        variationFactor = 0.2; // Tighter relative scatter, but absolute range is still wide
       }
       
       // Apply variation
       const durationVariation = (Math.random() - 0.5) * 2 * baseDuration * variationFactor;
-      const duration = Math.max(15, Math.min(120, Math.floor(baseDuration + durationVariation)));
+      // Allow durations to go up to 150s (2:30) as seen in graph
+      const duration = Math.max(20, Math.min(180, Math.floor(baseDuration + durationVariation)));
       
-      const frequencyVariation = (Math.random() - 0.5) * 2 * baseFrequency * variationFactor;
+      const frequencyVariation = (Math.random() - 0.5) * 2 * baseFrequency * (variationFactor * 0.5);
       const frequency = Math.max(120, Math.floor(baseFrequency + frequencyVariation));
       
-      // Add frequency time to current time (time between contractions)
+      // Add frequency time to current time
       if (i > 0) {
         currentTime = new Date(currentTime.getTime() + frequency * 1000);
       }
@@ -408,12 +411,11 @@ export class ContractionService {
         frequency: i > 0 ? Math.floor(frequency) : undefined
       });
       
-      // Update currentTime to end of contraction
       currentTime = endTime;
     }
     
-     return contractions;
-   }
+    return contractions;
+  }
 
    /**
     * Export a session as CSV format

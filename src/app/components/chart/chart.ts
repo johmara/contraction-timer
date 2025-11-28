@@ -59,50 +59,50 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             label: 'Trend Envelope',
             data: data.trendLine,
             type: 'line',
-            borderColor: 'rgba(198, 123, 92, 0.8)',
-            backgroundColor: 'rgba(198, 123, 92, 0.1)',
-            borderWidth: 2.5,
+            borderColor: 'rgba(255, 193, 7, 0.0)', // Transparent, we focus on the funnel
+            backgroundColor: 'transparent',
+            borderWidth: 0,
             fill: false,
             pointRadius: 0,
-            tension: 0.4,
+            tension: 0.5,
             order: 2
           },
-          // Upper confidence band
+          // Upper confidence band (Yellow Funnel Top)
           {
             label: 'Upper Band',
             data: data.upperBand,
             type: 'line',
-            borderColor: 'rgba(198, 123, 92, 0.3)',
-            backgroundColor: 'rgba(198, 123, 92, 0.08)',
-            borderWidth: 1,
-            borderDash: [3, 3],
-            fill: '+1',
+            borderColor: 'rgba(230, 180, 0, 0.8)', // Clinical Yellow/Gold
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [], // Solid line
+            fill: false,
             pointRadius: 0,
-            tension: 0.4,
+            tension: 0.5,
             order: 1
           },
-          // Lower confidence band
+          // Lower confidence band (Yellow Funnel Bottom)
           {
             label: 'Lower Band',
             data: data.lowerBand,
             type: 'line',
-            borderColor: 'rgba(198, 123, 92, 0.3)',
-            borderWidth: 1,
-            borderDash: [3, 3],
+            borderColor: 'rgba(230, 180, 0, 0.8)', // Clinical Yellow/Gold
+            borderWidth: 2,
+            borderDash: [], // Solid line
             fill: false,
             pointRadius: 0,
-            tension: 0.4,
+            tension: 0.5,
             order: 3
           },
-          // Scatter dots (individual contractions)
+          // Scatter dots (Clinical Blue)
           {
             label: 'Contractions',
             data: data.scatterPoints,
-            backgroundColor: 'rgba(74, 63, 92, 0.8)',
-            borderColor: 'rgba(74, 63, 92, 1)',
-            borderWidth: 2,
-            pointRadius: 5,
-            pointHoverRadius: 7,
+            backgroundColor: 'rgba(33, 150, 243, 0.8)', // Bright Blue
+            borderColor: 'rgba(21, 101, 192, 0.8)', // Darker Blue border
+            borderWidth: 1,
+            pointRadius: 4,
+            pointHoverRadius: 6,
             order: 4
           }
         ]
@@ -119,8 +119,8 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
           y: {
             beginAtZero: true,
             min: 0,
-            max: 135,
-            grace: '10%',
+            max: 160, // Accommodate up to 2:40 for extreme intensity
+            grace: '5%',
             title: {
               display: true,
               text: 'LENGTH (MM:SS)',
@@ -128,16 +128,16 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
                 size: 13,
                 weight: 'bold'
               },
-              color: '#E8DCC8'
+              color: '#546e7a' // Blue-grey
             },
             grid: {
-              color: 'rgba(232, 220, 200, 0.15)',
+              color: 'rgba(33, 150, 243, 0.1)', // Faint blue grid
               lineWidth: 1
             },
             ticks: {
-              color: '#E8DCC8',
+              color: '#546e7a',
               font: {
-                size: 12
+                size: 11
               },
               callback: (value: any) => {
                 const seconds = Math.round(value);
@@ -163,14 +163,14 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
                 size: 13,
                 weight: 'bold'
               },
-              color: '#E8DCC8'
+              color: '#546e7a' // Blue-grey
             },
             grid: {
-              color: 'rgba(232, 220, 200, 0.15)',
+              color: 'rgba(33, 150, 243, 0.1)', // Faint blue grid
               lineWidth: 1
             },
             ticks: {
-              color: '#E8DCC8',
+              color: '#546e7a',
               font: {
                 size: 11
               },
@@ -181,23 +181,10 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         },
         plugins: {
           legend: {
-            display: true,
-            position: 'top',
-            labels: {
-              font: {
-                size: 11,
-                weight: 'bold'
-              },
-              padding: 15,
-              usePointStyle: true,
-              pointStyle: 'circle',
-              boxWidth: 8,
-              boxHeight: 8,
-              color: '#E8DCC8'
-            }
+            display: false, // Hide legend to match clean look
           },
           tooltip: {
-            backgroundColor: 'rgba(45, 42, 50, 0.95)',
+            backgroundColor: 'rgba(33, 48, 60, 0.95)',
             padding: 12,
             titleFont: {
               size: 13,
@@ -325,8 +312,10 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       
       const currentX = scatterPoints[i].x;
       trendLine.push({ x: currentX, y: mean });
-      upperBand.push({ x: currentX, y: Math.min(135, mean + sd * 0.7) });
-      lowerBand.push({ x: currentX, y: Math.max(0, mean - sd * 0.7) });
+      // Use 2 SD to create a wider "clinical range" funnel
+      // This mimics the reference graph where the envelope captures most points
+      upperBand.push({ x: currentX, y: Math.min(180, mean + sd * 2.0) });
+      lowerBand.push({ x: currentX, y: Math.max(0, mean - sd * 2.0) });
     }
 
     console.log('Chart Data Summary:', {
