@@ -354,9 +354,9 @@ export class ContractionService {
     let currentTime = new Date(startTime);
     
     // Simulate realistic labor progression with three phases:
-    // Phase 1 (0-40%): Early labor - mild, irregular (20-45s, every 10-15 min)
-    // Phase 2 (40-75%): Active labor - stronger, regular (45-70s, every 3-5 min)  
-    // Phase 3 (75-100%): Transition - intense, frequent (60-90s, every 2-3 min)
+    // Phase 1 (0-40%): Early labor - highly variable (30-75s, every 8-15 min)
+    // Phase 2 (40-75%): Active labor - becoming regular (50-75s, every 3-5 min)  
+    // Phase 3 (75-100%): Transition - intense, frequent (70-90s, every 2-3 min)
     
     for (let i = 0; i < count; i++) {
       const progressRatio = i / count;
@@ -367,22 +367,22 @@ export class ContractionService {
       let variationFactor: number;
       
       if (progressRatio < 0.4) {
-        // Early labor: short durations, long intervals, high variation
-        baseDuration = 20 + progressRatio * 62.5; // 20 -> 45 seconds
-        baseFrequency = 900 - progressRatio * 500; // 15 min -> 10 min  
-        variationFactor = 0.4; // High variation (±40%)
+        // Early labor: wide range, highly irregular (30-75s, every 8-15 min)
+        baseDuration = 30 + progressRatio * 112.5; // 30 -> 75 seconds
+        baseFrequency = 900 - progressRatio * 300; // 15 min -> 10 min  
+        variationFactor = 0.5; // High variation (±50% - very irregular)
       } else if (progressRatio < 0.75) {
-        // Active labor: moderate durations, shorter intervals, less variation
+        // Active labor: narrower range, becoming consistent (50-75s, every 3-5 min)
         const activeProgress = (progressRatio - 0.4) / 0.35;
-        baseDuration = 45 + activeProgress * 25; // 45 -> 70 seconds
+        baseDuration = 50 + activeProgress * 25; // 50 -> 75 seconds
         baseFrequency = 300 - activeProgress * 120; // 5 min -> 3 min
-        variationFactor = 0.25; // Moderate variation (±25%)
+        variationFactor = 0.2; // Lower variation (±20% - more consistent)
       } else {
-        // Transition: long durations, very short intervals, low variation
+        // Transition: strong, very frequent (70-90s, every 2-3 min)
         const transitionProgress = (progressRatio - 0.75) / 0.25;
         baseDuration = 70 + transitionProgress * 20; // 70 -> 90 seconds
         baseFrequency = 180 - transitionProgress * 60; // 3 min -> 2 min
-        variationFactor = 0.15; // Low variation (±15%)
+        variationFactor = 0.1; // Low variation (±10% - very consistent)
       }
       
       // Apply variation
