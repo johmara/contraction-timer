@@ -238,7 +238,13 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
                 if (context.length > 0) {
                   const timeMs = context[0].parsed.x;
                   const time = new Date(timeMs);
-                  return time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                  // Format as HH:mm dd-MM-yyyy to match prediction card
+                  const hours = time.getHours().toString().padStart(2, '0');
+                  const minutes = time.getMinutes().toString().padStart(2, '0');
+                  const day = time.getDate().toString().padStart(2, '0');
+                  const month = (time.getMonth() + 1).toString().padStart(2, '0');
+                  const year = time.getFullYear();
+                  return `${hours}:${minutes} ${day}-${month}-${year}`;
                 }
                 return '';
               },
