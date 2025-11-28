@@ -487,6 +487,18 @@
   color: #2196F3;
 }
 
+.prediction-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.prediction-details {
+  margin-top: 16px;
+  animation: slideDown 0.3s ease;
+}
+
 /* ========== CONTRACTION HISTORY ========== */
 .history-section {
   margin-bottom: 20px;

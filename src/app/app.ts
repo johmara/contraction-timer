@@ -26,6 +26,7 @@ export class App implements OnInit, OnDestroy {
   isLocalMode = environment.localMode;
   chartSession: ContractionSession | null = null;
   showUserMenu = false;
+  isPredictionExpanded = false;
   private subscriptions = new Subscription();
   
   @ViewChild('restoreFileInput') restoreFileInput!: ElementRef<HTMLInputElement>;
@@ -252,5 +253,9 @@ export class App implements OnInit, OnDestroy {
 
   toggleUserMenu(): void {
     this.showUserMenu = !this.showUserMenu;
+  }
+
+  togglePrediction(): void {
+    this.isPredictionExpanded = !this.isPredictionExpanded;
   }
 }

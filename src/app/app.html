@@ -83,11 +83,22 @@
         <div class="prediction-section" *ngIf="prediction">
           <div class="prediction-card" [class.high-confidence]="prediction.confidence === 'high'"
                [class.medium-confidence]="prediction.confidence === 'medium'"
-               [class.low-confidence]="prediction.confidence === 'low'">
+               [class.low-confidence]="prediction.confidence === 'low'"
+               (click)="togglePrediction()"
+               style="cursor: pointer">
             <div class="prediction-icon">👶</div>
             <div class="prediction-content">
-              <div class="confidence-badge" [class]="'badge-' + prediction.confidence">
-                {{ prediction.confidence | uppercase }} CONFIDENCE
+              <div class="prediction-header-row">
+                <div class="confidence-badge" [class]="'badge-' + prediction.confidence">
+                  {{ prediction.confidence | uppercase }} CONFIDENCE
+                </div>
+                <div class="expand-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" 
+                       [style.transform]="isPredictionExpanded ? 'rotate(180deg)' : 'rotate(0deg)'"
+                       style="transition: transform 0.3s ease; width: 20px; height: 20px;">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </div>
               </div>
               <div class="prediction-time">
                 {{ prediction.estimatedTime | date:'short' }}
@@ -96,24 +107,28 @@
               <div class="time-until">
                 (~{{ getHoursUntilDelivery(prediction) }} hours from now)
               </div>
-              <div class="prediction-reasoning">{{ prediction.reasoning }}</div>
-              <div class="prediction-metrics">
-                <div class="metric-item">
-                  <span class="metric-icon">⏱️</span>
-                  <span class="metric-label">Frequency:</span>
-                  <span class="metric-value">{{ prediction.avgFrequency.toFixed(1) }} min apart</span>
-                </div>
-                <div class="metric-item">
-                  <span class="metric-icon">📏</span>
-                  <span class="metric-label">Duration:</span>
-                  <span class="metric-value">{{ prediction.avgDuration.toFixed(0) }} seconds</span>
-                </div>
-                <div class="metric-item">
-                  <span class="metric-icon">📈</span>
-                  <span class="metric-label">Trend:</span>
-                  <span class="metric-value" [class]="'trend-' + prediction.trend">
-                    {{ prediction.trend | uppercase }}
-                  </span>
+              
+              <!-- Collapsible Details -->
+              <div *ngIf="isPredictionExpanded" class="prediction-details">
+                <div class="prediction-reasoning">{{ prediction.reasoning }}</div>
+                <div class="prediction-metrics">
+                  <div class="metric-item">
+                    <span class="metric-icon">⏱️</span>
+                    <span class="metric-label">Frequency:</span>
+                    <span class="metric-value">{{ prediction.avgFrequency.toFixed(1) }} min apart</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-icon">📏</span>
+                    <span class="metric-label">Duration:</span>
+                    <span class="metric-value">{{ prediction.avgDuration.toFixed(0) }} seconds</span>
+                  </div>
+                  <div class="metric-item">
+                    <span class="metric-icon">📈</span>
+                    <span class="metric-label">Trend:</span>
+                    <span class="metric-value" [class]="'trend-' + prediction.trend">
+                      {{ prediction.trend | uppercase }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
