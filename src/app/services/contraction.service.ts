@@ -407,7 +407,7 @@ export class ContractionService {
       currentTime,
       { minFreq: 180, maxFreq: 300 }, // 3-5 min
       { minDur: 45, maxDur: 60 },     // 45-60s
-      0.25 // Moderate variation
+      0.35 // Increased variation (was 0.25)
     );
 
     currentTime = activeStartTime;
@@ -425,7 +425,8 @@ export class ContractionService {
       currentTime,
       { minFreq: 900, maxFreq: 1800 }, // 15-30 min
       { minDur: 30, maxDur: 45 },      // 30-45s
-      0.4 // High variation
+      0.8, // High variation (was 0.4) - very chaotic
+      true // Enable "Chaos Mode" (long gaps, false starts)
     );
 
     // Sort by time as we generated blocks that might be out of order if we just concat
@@ -440,7 +441,8 @@ export class ContractionService {
     phaseEnd: Date,
     freqRange: { minFreq: number, maxFreq: number },
     durRange: { minDur: number, maxDur: number },
-    variation: number
+    variation: number,
+    chaosMode: boolean = false
   ) {
     let timeCursor = new Date(phaseStart);
     
@@ -454,12 +456,27 @@ export class ContractionService {
       const currentBaseDur = durRange.minDur + (progress * (durRange.maxDur - durRange.minDur));
 
       // Apply Randomness
-      const freqNoise = (Math.random() - 0.5) * 2 * variation * currentBaseFreq;
+      // In chaos mode (early labor), variation is much wilder
+      const chaosMultiplier = chaosMode ? (1 + Math.random()) : 1; 
+      
+      const freqNoise = (Math.random() - 0.5) * 2 * variation * currentBaseFreq * chaosMultiplier;
       const durNoise = (Math.random() - 0.5) * 2 * variation * currentBaseDur;
       
-      const frequency = Math.max(60, currentBaseFreq + freqNoise);
-      const duration = Math.max(15, currentBaseDur + durNoise);
+      let frequency = Math.max(60, currentBaseFreq + freqNoise);
+      let duration = Math.max(15, currentBaseDur + durNoise);
       
+      // Chaos Mode: Occasional "false starts" (short duration) or "long breaks" (long frequency)
+      if (chaosMode) {
+        if (Math.random() < 0.2) {
+            // 20% chance of a "break" - frequency doubles or triples
+            frequency *= (1.5 + Math.random() * 1.5);
+        }
+        if (Math.random() < 0.15) {
+            // 15% chance of a "weak one" - duration drops significantly
+            duration *= 0.6;
+        }
+      }
+
       // Start time of contraction
       const startTime = new Date(timeCursor);
       const endTime = new Date(startTime.getTime() + duration * 1000);
