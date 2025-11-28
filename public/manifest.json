@@ -1,0 +1,99 @@
+{
+  "name": "Contraction Timer - Labor Tracking",
+  "short_name": "Contraction Timer",
+  "description": "Clinical-grade labor contraction tracking with delivery time prediction and visual analytics",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#4A3F5C",
+  "background_color": "#F5F0E8",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "32x32",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-1.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "screenshot-2.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Start Session",
+      "short_name": "Session",
+      "description": "Start a new contraction tracking session",
+      "url": "/?tab=current",
+      "icons": [
+        {
+          "src": "favicon.ico",
+          "sizes": "32x32",
+          "type": "image/x-icon"
+        }
+      ]
+    },
+    {
+      "name": "View History",
+      "short_name": "History",
+      "description": "View past sessions and export data",
+      "url": "/?tab=history",
+      "icons": [
+        {
+          "src": "favicon.ico",
+          "sizes": "32x32",
+          "type": "image/x-icon"
+        }
+      ]
+    },
+    {
+      "name": "View Chart",
+      "short_name": "Chart",
+      "description": "View contraction pattern analysis",
+      "url": "/?tab=chart",
+      "icons": [
+        {
+          "src": "favicon.ico",
+          "sizes": "32x32",
+          "type": "image/x-icon"
+        }
+      ]
+    }
+  ],
+  "categories": ["medical", "health", "productivity"],
+  "screenshots_optional": true
+}

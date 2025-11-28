@@ -2,12 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>ContractionTimer</title>
+  <title>Contraction Timer - Labor Tracking</title>
   <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Clinical-grade labor contraction tracking with delivery time prediction">
+  <meta name="theme-color" content="#4A3F5C">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Contraction Timer">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="favicon.ico">
 </head>
 <body>
   <app-root></app-root>
+  <script>
+    // Register Service Worker for PWA support
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/ngsw-worker.js').then(
+        registration => console.log('✅ Service Worker registered:', registration),
+        error => console.log('⚠️ Service Worker registration failed:', error)
+      );
+    }
+  </script>
 </body>
 </html>
