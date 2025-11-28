@@ -322,20 +322,20 @@ export class ContractionService {
       
       const testSession: ContractionSession = {
         id: 'test-session-1',
-        startDate: sessionStart,
-        contractions: this.generateRealisticContractions(sessionStart, 120), // 120 contractions over ~8 hours
+        startDate: new Date(new Date().getTime() - 12 * 3600 * 1000), // Started 12 hours ago
+        contractions: this.generateRealisticContractions(new Date()), // End now
         isActive: false
       };
       
       // Create another session from yesterday
-      const yesterdayStart = new Date();
-      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-      yesterdayStart.setHours(14, 30, 0, 0);
+      const yesterdayEnd = new Date();
+      yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+      yesterdayEnd.setHours(20, 0, 0, 0);
       
       const testSession2: ContractionSession = {
         id: 'test-session-2',
-        startDate: yesterdayStart,
-        contractions: this.generateRealisticContractions(yesterdayStart, 100), // 100 contractions
+        startDate: new Date(yesterdayEnd.getTime() - 8 * 3600 * 1000),
+        contractions: this.generateRealisticContractions(yesterdayEnd),
         isActive: false
       };
       
@@ -349,72 +349,132 @@ export class ContractionService {
     }
   }
 
-  private generateRealisticContractions(startTime: Date, count: number = 25): Contraction[] {
+  private generateRealisticContractions(sessionEnd: Date): Contraction[] {
     const contractions: Contraction[] = [];
-    let currentTime = new Date(startTime);
     
-    // Simulate realistic labor progression based on the reference graph
-    // The graph shows an exponential increase in duration towards the end (the "funnel" effect)
+    // We build the session backwards from the end (Pushing -> Transition -> Active -> Latent)
+    // to ensure we fit a realistic timeline ending at "now" (or sessionEnd).
     
-    for (let i = 0; i < count; i++) {
-      const progressRatio = i / count;
+    let currentTime = new Date(sessionEnd);
+    
+    // --- Phase 4: Second Stage (Pushing) ---
+    // Duration: ~1-2 hours
+    // Freq: 2-5 mins
+    // Length: 60-90s
+    const pushingDurationHours = 1 + Math.random(); // 1-2 hours
+    const pushingEndTime = new Date(currentTime);
+    const pushingStartTime = new Date(currentTime.getTime() - pushingDurationHours * 3600 * 1000);
+    
+    this.generatePhaseContractions(
+      contractions, 
+      pushingStartTime, 
+      pushingEndTime, 
+      { minFreq: 120, maxFreq: 300 }, // 2-5 min
+      { minDur: 60, maxDur: 90 },     // 60-90s
+      0.1 // Low variation
+    );
+    
+    currentTime = pushingStartTime;
+
+    // --- Phase 3: Transition ---
+    // Duration: ~30 min - 1.5 hours (Shortest)
+    // Freq: 2-3 mins
+    // Length: 60-90s (Intense)
+    const transitionDurationHours = 0.5 + Math.random(); // 0.5 - 1.5 hours
+    const transitionStartTime = new Date(currentTime.getTime() - transitionDurationHours * 3600 * 1000);
+    
+    this.generatePhaseContractions(
+      contractions,
+      transitionStartTime,
+      currentTime,
+      { minFreq: 120, maxFreq: 180 }, // 2-3 min
+      { minDur: 60, maxDur: 90 },     // 60-90s
+      0.15 // Low variation
+    );
+
+    currentTime = transitionStartTime;
+
+    // --- Phase 2: Active Labor ---
+    // Duration: 4-8 hours
+    // Freq: 3-5 mins
+    // Length: 45-60s
+    const activeDurationHours = 4 + Math.random() * 4; // 4-8 hours
+    const activeStartTime = new Date(currentTime.getTime() - activeDurationHours * 3600 * 1000);
+    
+    this.generatePhaseContractions(
+      contractions,
+      activeStartTime,
+      currentTime,
+      { minFreq: 180, maxFreq: 300 }, // 3-5 min
+      { minDur: 45, maxDur: 60 },     // 45-60s
+      0.25 // Moderate variation
+    );
+
+    currentTime = activeStartTime;
+
+    // --- Phase 1: Latent (Early) Labor ---
+    // Duration: 6-12 hours (can be days, but we'll cap at ~12h for chart readability)
+    // Freq: 15-30 mins
+    // Length: 30-45s
+    const latentDurationHours = 6 + Math.random() * 6; // 6-12 hours
+    const latentStartTime = new Date(currentTime.getTime() - latentDurationHours * 3600 * 1000);
+    
+    this.generatePhaseContractions(
+      contractions,
+      latentStartTime,
+      currentTime,
+      { minFreq: 900, maxFreq: 1800 }, // 15-30 min
+      { minDur: 30, maxDur: 45 },      // 30-45s
+      0.4 // High variation
+    );
+
+    // Sort by time as we generated blocks that might be out of order if we just concat
+    // (Though we pushed in reverse time block order, the array needs to be time-ascending for the chart)
+    return contractions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
+                       .map((c, i) => ({ ...c, id: `contraction-${i + 1}` }));
+  }
+
+  private generatePhaseContractions(
+    allContractions: Contraction[],
+    phaseStart: Date,
+    phaseEnd: Date,
+    freqRange: { minFreq: number, maxFreq: number },
+    durRange: { minDur: number, maxDur: number },
+    variation: number
+  ) {
+    let timeCursor = new Date(phaseStart);
+    
+    while (timeCursor < phaseEnd) {
+      // Interpolate progress within the phase (0 to 1)
+      const progress = (timeCursor.getTime() - phaseStart.getTime()) / (phaseEnd.getTime() - phaseStart.getTime());
       
-      let baseDuration: number;
-      let baseFrequency: number;
-      let variationFactor: number;
+      // Linearly interpolate base parameters based on progress through the phase
+      // e.g., Frequency gets tighter, Duration gets longer
+      const currentBaseFreq = freqRange.maxFreq - (progress * (freqRange.maxFreq - freqRange.minFreq));
+      const currentBaseDur = durRange.minDur + (progress * (durRange.maxDur - durRange.minDur));
+
+      // Apply Randomness
+      const freqNoise = (Math.random() - 0.5) * 2 * variation * currentBaseFreq;
+      const durNoise = (Math.random() - 0.5) * 2 * variation * currentBaseDur;
       
-      // We model the curve seen in the reference image
-      if (progressRatio < 0.5) {
-        // Phase 1: Latent/Early (Flat trend, high scatter)
-        // Duration: Centered ~50s, ranging 30s-75s
-        baseDuration = 50 + (progressRatio * 10); // Slight drift up 50->55
-        baseFrequency = 600 - (progressRatio * 180); // 10 min -> 7 min
-        variationFactor = 0.5; // High scatter (±50%) -> range ~25s-75s
-      } else if (progressRatio < 0.8) {
-        // Phase 2: Active (Curve begins to steepen)
-        // Duration: Rises from ~55s to ~80s
-        const phaseProgress = (progressRatio - 0.5) / 0.3;
-        baseDuration = 55 + (phaseProgress * 25); // 55 -> 80
-        baseFrequency = 420 - (phaseProgress * 120); // 7 min -> 5 min
-        variationFactor = 0.3; // Moderate scatter (±30%)
-      } else {
-        // Phase 3: Transition (Exponential climb)
-        // Duration: Rises sharply from ~80s to ~130s+
-        const phaseProgress = (progressRatio - 0.8) / 0.2;
-        // Exponential-like curve for the end
-        baseDuration = 80 + (Math.pow(phaseProgress, 1.5) * 50); // 80 -> 130
-        baseFrequency = 300 - (phaseProgress * 120); // 5 min -> 3 min
-        variationFactor = 0.2; // Tighter relative scatter, but absolute range is still wide
-      }
+      const frequency = Math.max(60, currentBaseFreq + freqNoise);
+      const duration = Math.max(15, currentBaseDur + durNoise);
       
-      // Apply variation
-      const durationVariation = (Math.random() - 0.5) * 2 * baseDuration * variationFactor;
-      // Allow durations to go up to 150s (2:30) as seen in graph
-      const duration = Math.max(20, Math.min(180, Math.floor(baseDuration + durationVariation)));
+      // Start time of contraction
+      const startTime = new Date(timeCursor);
+      const endTime = new Date(startTime.getTime() + duration * 1000);
       
-      const frequencyVariation = (Math.random() - 0.5) * 2 * baseFrequency * (variationFactor * 0.5);
-      const frequency = Math.max(120, Math.floor(baseFrequency + frequencyVariation));
-      
-      // Add frequency time to current time
-      if (i > 0) {
-        currentTime = new Date(currentTime.getTime() + frequency * 1000);
-      }
-      
-      const contractionStart = new Date(currentTime);
-      const endTime = new Date(contractionStart.getTime() + duration * 1000);
-      
-      contractions.push({
-        id: `contraction-${i + 1}`,
-        startTime: contractionStart,
+      allContractions.push({
+        id: 'temp', // will replace later
+        startTime: startTime,
         endTime: endTime,
-        duration: duration,
-        frequency: i > 0 ? Math.floor(frequency) : undefined
+        duration: Math.floor(duration),
+        frequency: Math.floor(frequency)
       });
       
-      currentTime = endTime;
+      // Advance time by frequency (interval + duration usually, but here freq is start-to-start)
+      timeCursor = new Date(timeCursor.getTime() + frequency * 1000);
     }
-    
-    return contractions;
   }
 
    /**
