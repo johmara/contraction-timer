@@ -101,7 +101,7 @@
                 </div>
               </div>
               <div class="prediction-time">
-                {{ prediction.estimatedTime | date:'yy-MM-dd HH:mm' }}
+                {{ prediction.estimatedTime | date:'HH:mm dd-MM-yyyy' }}
               </div>
               <div class="prediction-label">Estimated Birth Time</div>
               <div class="time-until">
@@ -273,7 +273,7 @@
       <div *ngIf="currentSession && currentSession.contractions.length > 0">
         <div class="chart-info">
           <div class="chart-session-date">
-            Current Session - {{ currentSession.startDate | date:'yy-MM-dd HH:mm' }}
+            Current Session - {{ currentSession.startDate | date:'MMM d, y HH:mm' }}
           </div>
         </div>
         <app-chart [session]="currentSession"></app-chart>
