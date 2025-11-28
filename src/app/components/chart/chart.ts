@@ -358,6 +358,13 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
        activeLaborStartIndex = Math.floor(scatterPoints.length * 0.5); // Fallback to 2nd half
     }
 
+    console.log('📊 Chart Analysis:', {
+        totalPoints: scatterPoints.length,
+        activeStartIndex: activeLaborStartIndex,
+        activePointsCount: scatterPoints.length - activeLaborStartIndex,
+        firstActiveTime: new Date(scatterPoints[activeLaborStartIndex].x).toLocaleTimeString()
+    });
+
     // Subset of points for Regression (Active Phase only)
     const activePoints = scatterPoints.slice(activeLaborStartIndex);
     
@@ -407,18 +414,12 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     const lowerBand: (Point|null)[] = [];
 
     // Generate points
-    // For Latent Phase (before active), we push NULL so lines don't appear
-    for (let i = 0; i < scatterPoints.length; i++) {
+    // For Latent Phase (before active), we simply don't generate points
+    for (let i = activeLaborStartIndex; i < scatterPoints.length; i++) {
       const p = scatterPoints[i];
-      if (i < activeLaborStartIndex) {
-        trendLine.push(null);
-        upperBand.push(null);
-        lowerBand.push(null);
-      } else {
-        trendLine.push({ x: p.x, y: trendFit.predict(p.x) });
-        upperBand.push({ x: p.x, y: Math.min(180, upperFit.predict(p.x)) });
-        lowerBand.push({ x: p.x, y: Math.max(0, lowerFit.predict(p.x)) });
-      }
+      trendLine.push({ x: p.x, y: trendFit.predict(p.x) });
+      upperBand.push({ x: p.x, y: Math.min(180, upperFit.predict(p.x)) });
+      lowerBand.push({ x: p.x, y: Math.max(0, lowerFit.predict(p.x)) });
     }
 
     // --- 4. Prediction ---
