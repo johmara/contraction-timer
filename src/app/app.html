@@ -159,15 +159,41 @@
       </div>
     </div>
 
-    <!-- History Tab -->
-    <div class="tab-content" *ngIf="activeTab === 'history'">
-      <h3>Past Sessions</h3>
-      
-      <div *ngIf="sessionHistory.length === 0" class="empty-state">
-        <p class="info">No previous sessions</p>
-      </div>
+     <!-- History Tab -->
+     <div class="tab-content" *ngIf="activeTab === 'history'">
+       <h3>Past Sessions</h3>
+       
+       <!-- Backup/Restore Controls -->
+       <div class="backup-controls">
+         <button class="btn btn-sm btn-primary" (click)="backupAllSessions()" [disabled]="sessionHistory.length === 0">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-sm">
+             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+             <polyline points="7 10 12 15 17 10"></polyline>
+             <line x1="12" y1="15" x2="12" y2="3"></line>
+           </svg>
+           Backup All
+         </button>
+         <button class="btn btn-sm btn-ghost" (click)="triggerRestoreFileInput()">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-sm">
+             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+             <polyline points="17 8 12 3 7 8"></polyline>
+             <line x1="12" y1="3" x2="12" y2="15"></line>
+           </svg>
+           Restore
+         </button>
+         <input 
+           type="file" 
+           #restoreFileInput 
+           hidden 
+           accept=".json" 
+           (change)="restoreFromFile($event)">
+       </div>
+       
+       <div *ngIf="sessionHistory.length === 0" class="empty-state">
+         <p class="info">No previous sessions</p>
+       </div>
 
-      <div *ngIf="sessionHistory.length > 0" class="session-history">
+       <div *ngIf="sessionHistory.length > 0" class="session-history">
         <div class="session-card" *ngFor="let session of sessionHistory">
           <div class="session-header">
             <div class="session-date">

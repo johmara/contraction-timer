@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { ContractionService } from './services/contraction.service';
 import { AuthService } from './services/auth.service';
 import { Contraction, ContractionSession, BirthPrediction } from './models/contraction.model';
@@ -27,6 +27,8 @@ export class App implements OnInit, OnDestroy {
   chartSession: ContractionSession | null = null;
   showUserMenu = false;
   private subscriptions = new Subscription();
+  
+  @ViewChild('restoreFileInput') restoreFileInput!: ElementRef<HTMLInputElement>;
 
   constructor(
     public contractionService: ContractionService,
@@ -217,6 +219,35 @@ export class App implements OnInit, OnDestroy {
 
   exportSessionCSV(session: ContractionSession): void {
     this.contractionService.downloadSessionCSV(session);
+  }
+
+  backupAllSessions(): void {
+    const allSessions = this.contractionService.getAllSessions();
+    if (allSessions.length > 0) {
+      this.contractionService.downloadSessionsJSON(allSessions);
+    }
+  }
+
+  triggerRestoreFileInput(): void {
+    this.restoreFileInput.nativeElement.click();
+  }
+
+  restoreFromFile(event: any): void {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const jsonData = e.target?.result as string;
+        const imported = this.contractionService.importSessionsFromJSON(jsonData);
+        alert(`Successfully imported ${imported.length} session(s)`);
+        this.loadAllSessions();
+      } catch (error: any) {
+        alert(`Error importing file: ${error.message}`);
+      }
+    };
+    reader.readAsText(file);
   }
 
   toggleUserMenu(): void {

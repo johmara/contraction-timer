@@ -508,6 +508,91 @@ export class ContractionService {
 
      document.body.appendChild(link);
      link.click();
-     document.body.removeChild(link);
-   }
+      document.body.removeChild(link);
+    }
+
+    /**
+     * Export session(s) as JSON for backup/data analysis
+     */
+    exportSessionsAsJSON(sessions: ContractionSession[]): string {
+      const data = {
+        exportDate: new Date().toISOString(),
+        appVersion: '1.0.0',
+        sessions: sessions.map(session => ({
+          id: session.id,
+          startDate: session.startDate.toISOString(),
+          isActive: session.isActive,
+          contractions: session.contractions.map(c => ({
+            id: c.id,
+            startTime: c.startTime.toISOString(),
+            endTime: c.endTime?.toISOString() || null,
+            duration: c.duration || null,
+            frequency: c.frequency || null
+          }))
+        }))
+      };
+      return JSON.stringify(data, null, 2);
+    }
+
+    /**
+     * Download session(s) as JSON file for backup
+     */
+    downloadSessionsJSON(sessions: ContractionSession[]): void {
+      const json = this.exportSessionsAsJSON(sessions);
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      const dateStr = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-');
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', `contractions-backup-${dateStr}.json`);
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    /**
+     * Import sessions from JSON backup file
+     */
+    importSessionsFromJSON(jsonData: string): ContractionSession[] {
+      try {
+        const data = JSON.parse(jsonData);
+        
+        if (!data.sessions || !Array.isArray(data.sessions)) {
+          throw new Error('Invalid JSON format: missing sessions array');
+        }
+
+        const imported: ContractionSession[] = data.sessions.map((s: any) => ({
+          id: s.id,
+          startDate: new Date(s.startDate),
+          isActive: s.isActive,
+          contractions: s.contractions.map((c: any) => ({
+            id: c.id,
+            startTime: new Date(c.startTime),
+            endTime: c.endTime ? new Date(c.endTime) : undefined,
+            duration: c.duration,
+            frequency: c.frequency
+          }))
+        }));
+
+        // Merge with existing sessions
+        const existing = this.getAllSessions();
+        const merged = [...existing, ...imported];
+        
+        // Store merged sessions
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(merged));
+        
+        return imported;
+      } catch (error: any) {
+        console.error('Error importing sessions:', error);
+        throw new Error(`Failed to import JSON: ${error.message}`);
+      }
+    }
 }
