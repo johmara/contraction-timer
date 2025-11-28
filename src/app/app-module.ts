@@ -3,7 +3,6 @@ import { BrowserModule } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { provideAuth, getAuth } from '@angular/fire/auth';
-import { provideFirestore, getFirestore } from '@angular/fire/firestore';
 
 import { AppRoutingModule } from './app-routing-module';
 import { App } from './app';
@@ -41,12 +40,6 @@ console.log('Full Firebase Config:', environment.firebase);
       const auth = getAuth();
       console.log('✅ Auth initialized');
       return auth;
-    }),
-    provideFirestore(() => {
-      console.log('=== Initializing Firestore ===');
-      const firestore = getFirestore();
-      console.log('✅ Firestore initialized');
-      return firestore;
     })
   ],
   bootstrap: [App]
