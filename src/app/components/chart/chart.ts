@@ -288,9 +288,9 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private prepareChartData(): { 
     scatterPoints: Point[], 
-    trendLine: (Point|null)[],
-    upperBand: (Point|null)[],
-    lowerBand: (Point|null)[],
+    trendLine: Point[],
+    upperBand: Point[],
+    lowerBand: Point[],
     projectedUpper: Point[],
     projectedLower: Point[],
     intersection: Point[]
@@ -347,15 +347,13 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       }
 
       if (consistentCount >= 3) {
-        // Found it! Start from the beginning of this sequence
         activeLaborStartIndex = i - 3;
         break;
       }
     }
     
-    // If no active labor detected yet, maybe use the last 30% or just fallback to 0
     if (activeLaborStartIndex <= 0) {
-       activeLaborStartIndex = Math.floor(scatterPoints.length * 0.5); // Fallback to 2nd half
+       activeLaborStartIndex = Math.floor(scatterPoints.length * 0.5); 
     }
 
     console.log('📊 Chart Analysis:', {
@@ -372,9 +370,7 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     const windowSize = Math.max(3, Math.floor(activePoints.length / 5));
     const rawUpper: Point[] = [];
     const rawLower: Point[] = [];
-    const spreadPoints: Point[] = []; 
     
-    // We calculate stats only for the active portion
     for (let i = 0; i < activePoints.length; i++) {
       const start = Math.max(0, i - Math.floor(windowSize / 2));
       const end = Math.min(activePoints.length - 1, i + Math.floor(windowSize / 2));
@@ -396,25 +392,21 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       
       rawUpper.push({ x: currentX, y: mean + sd * 2.0 });
       rawLower.push({ x: currentX, y: mean - sd * 2.0 });
-      spreadPoints.push({ x: currentX, y: sd * 2.0 }); 
     }
 
     // --- 3. Fit Models on Active Data ---
     // Trend: Polynomial (Degree 2) on Active Points
     const trendFit = this.regressionService.fitPolynomial(activePoints, 2);
-    // Spread: Linear Decay on Active Variance
-    const spreadFit = this.regressionService.fitLinear(spreadPoints);
-    
     // Smooth Envelope Fits
     const upperFit = this.regressionService.fitPolynomial(rawUpper, 2);
     const lowerFit = this.regressionService.fitPolynomial(rawLower, 2);
 
-    const trendLine: (Point|null)[] = [];
-    const upperBand: (Point|null)[] = [];
-    const lowerBand: (Point|null)[] = [];
+    const trendLine: Point[] = [];
+    const upperBand: Point[] = [];
+    const lowerBand: Point[] = [];
 
     // Generate points
-    // For Latent Phase (before active), we simply don't generate points
+    // Start generating points ONLY from activeLaborStartIndex
     for (let i = activeLaborStartIndex; i < scatterPoints.length; i++) {
       const p = scatterPoints[i];
       trendLine.push({ x: p.x, y: trendFit.predict(p.x) });
@@ -423,35 +415,41 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     // --- 4. Prediction ---
+    // Project the Polynomial curves forward until they intersect naturally
     const lastTime = scatterPoints[scatterPoints.length - 1].x;
-    let intersectionTime = spreadFit.zeroCrossing;
     const maxProjectionTime = lastTime + 12 * 60 * 60 * 1000;
+    const stepSize = 5 * 60 * 1000; 
     
-    if (!intersectionTime || intersectionTime <= lastTime || intersectionTime > maxProjectionTime) {
-        intersectionTime = lastTime + 4 * 60 * 60 * 1000; 
-    }
-
     const projectedUpper: Point[] = [];
     const projectedLower: Point[] = [];
     
-    // Start from last point
+    // Start from last point to ensure connectivity
     projectedUpper.push({ x: lastTime, y: upperFit.predict(lastTime) });
     projectedLower.push({ x: lastTime, y: lowerFit.predict(lastTime) });
 
-    const stepSize = 5 * 60 * 1000;
-    
-    for (let t = lastTime + stepSize; t <= intersectionTime; t += stepSize) {
-      const trendY = trendFit.predict(t);
-      const spreadY = Math.max(0, spreadFit.predict(t)); 
+    let intersectionTime = -1;
+    let intersectionY = -1;
+
+    for (let t = lastTime + stepSize; t <= maxProjectionTime; t += stepSize) {
+      // Use the SAME polynomial models as the envelope
+      const uY = upperFit.predict(t);
+      const lY = Math.max(0, lowerFit.predict(t)); 
       
-      projectedUpper.push({ x: t, y: trendY + spreadY });
-      projectedLower.push({ x: t, y: trendY - spreadY });
+      // Check for intersection (Funnel closed)
+      if (uY <= lY) {
+        intersectionTime = t;
+        intersectionY = (uY + lY) / 2;
+        
+        projectedUpper.push({ x: intersectionTime, y: intersectionY });
+        projectedLower.push({ x: intersectionTime, y: intersectionY });
+        break;
+      }
       
-      if (spreadY <= 0.5) break; 
+      projectedUpper.push({ x: t, y: uY });
+      projectedLower.push({ x: t, y: lY });
     }
     
-    const finalTrendY = trendFit.predict(intersectionTime);
-    const intersectionPoint = { x: intersectionTime, y: finalTrendY };
+    const intersectionPoints = intersectionTime > 0 ? [{ x: intersectionTime, y: intersectionY }] : [];
 
     return { 
       scatterPoints, 
@@ -460,7 +458,7 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       lowerBand,
       projectedUpper,
       projectedLower,
-      intersection: [intersectionPoint]
+      intersection: intersectionPoints
     };
   }
 }
