@@ -569,6 +569,95 @@
   border-top: 1px solid #E8DCC8;
 }
 
+/* Birth Time Display */
+.birth-time-display {
+  background: linear-gradient(135deg, #E8DCC8 0%, #B6A992 100%);
+  padding: 16px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(74, 63, 92, 0.12);
+  position: relative;
+}
+
+.birth-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.birth-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.birth-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4A3F5C;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.birth-time {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2D2A32;
+}
+
+.prediction-accuracy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #5A5560;
+  margin-top: 4px;
+}
+
+.accuracy-label {
+  font-weight: 500;
+}
+
+.accuracy-time {
+  font-weight: 600;
+  color: #4A3F5C;
+}
+
+.accuracy-diff {
+  font-weight: 600;
+  color: #C67B5C;
+}
+
+.accuracy-diff.accurate {
+  color: #7BA05B;
+}
+
+.btn-icon-small {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #5A5560;
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon-small svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-icon-small:hover {
+  background: rgba(74, 63, 92, 0.1);
+  color: #C67B5C;
+}
+
 /* ========== SESSION HISTORY (HISTORY TAB) ========== */
 .session-history {
   display: flex;

@@ -11,6 +11,7 @@ export interface ContractionSession {
   startDate: Date;
   contractions: Contraction[];
   predictedBirthTime?: Date;
+  actualBirthTime?: Date;
   isActive: boolean;
 }
 

@@ -164,6 +164,27 @@
 
          <!-- End Session Button -->
          <div class="session-actions">
+           <button class="btn btn-primary" (click)="markBirthTime()" *ngIf="currentSession && !currentSession.actualBirthTime">
+             👶 Mark Birth Time
+           </button>
+           <div class="birth-time-display" *ngIf="currentSession?.actualBirthTime">
+             <span class="birth-icon">🎉</span>
+             <div class="birth-info">
+               <div class="birth-label">Baby Born</div>
+               <div class="birth-time">{{ currentSession.actualBirthTime | date:'HH:mm dd-MM-yyyy' }}</div>
+               <div class="prediction-accuracy" *ngIf="prediction">
+                 <span class="accuracy-label">Predicted:</span>
+                 <span class="accuracy-time">{{ prediction.estimatedTime | date:'HH:mm' }}</span>
+                 <span class="accuracy-diff" [class.accurate]="isPredictionAccurate()">({{ getPredictionDifference() }})</span>
+               </div>
+             </div>
+             <button class="btn-icon-small" (click)="clearBirthTime()" title="Clear birth time">
+               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                 <line x1="18" y1="6" x2="6" y2="18"></line>
+                 <line x1="6" y1="6" x2="18" y2="18"></line>
+               </svg>
+             </button>
+           </div>
            <button class="btn btn-secondary" (click)="endSession()">End Session</button>
            <button class="btn btn-xs btn-ghost" (click)="exportCurrentSessionCSV()" *ngIf="currentSession">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">

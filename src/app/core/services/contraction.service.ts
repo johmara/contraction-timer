@@ -15,6 +15,7 @@ import {
 } from '@angular/fire/firestore';
 import { Contraction, ContractionSession, BirthPrediction } from '../models/contraction.model';
 import { AuthService } from './auth.service';
+import { RegressionService } from './regression.service';
 
 @Injectable({
   providedIn: 'root'
@@ -26,7 +27,7 @@ export class ContractionService {
   public currentSession$ = this.currentSessionSubject.asObservable();
   private unsubscribe: (() => void) | null = null;
 
-  constructor(private authService: AuthService) {
+  constructor(private authService: AuthService, private regressionService: RegressionService) {
     // Subscribe to auth changes and load user's data
     this.authService.currentUser$.subscribe(user => {
       if (user) {
@@ -153,6 +154,15 @@ export class ContractionService {
     }
   }
 
+  async markBirthTime(birthTime?: Date): Promise<void> {
+    const session = this.currentSessionSubject.value;
+    if (session) {
+      session.actualBirthTime = birthTime || new Date();
+      await this.saveSession(session);
+      this.currentSessionSubject.next(session);
+    }
+  }
+
   getPrediction(): BirthPrediction | null {
     const session = this.currentSessionSubject.value;
     if (!session || session.contractions.length < 3) {
@@ -164,7 +174,10 @@ export class ContractionService {
       return null;
     }
 
-    // Calculate average duration and frequency
+    // Use RegressionService to calculate prediction (same as chart)
+    const prediction = this.regressionService.predictDeliveryTime(completedContractions);
+
+    // Calculate average duration and frequency for display
     const avgDuration = completedContractions.reduce((sum, c) => sum + (c.duration || 0), 0) / completedContractions.length;
     
     const frequencies = completedContractions.filter(c => c.frequency).map(c => c.frequency!);
@@ -188,41 +201,37 @@ export class ContractionService {
       }
     }
 
-    let confidence: 'low' | 'medium' | 'high' = 'low';
-    let hoursToDelivery = 12;
+    // Build reasoning message
     let reasoning = '';
+    if (!prediction.time) {
+      reasoning = 'Continue monitoring. Unable to calculate delivery prediction yet.';
+      return {
+        estimatedTime: new Date(Date.now() + 12 * 60 * 60 * 1000),
+        confidence: 'low',
+        reasoning,
+        avgFrequency,
+        avgDuration,
+        trend
+      };
+    }
 
-    if (avgFrequency < 180 && avgDuration >= 45) {
-      confidence = 'high';
-      hoursToDelivery = 2;
+    if (prediction.confidence === 'high') {
       reasoning = 'Active labor phase detected. Contractions are frequent and strong.';
-    } else if (avgFrequency < 300 && avgDuration >= 45) {
-      confidence = 'medium';
-      hoursToDelivery = 4;
-      reasoning = 'Progressing well. Contractions are becoming more regular and intense.';
-    } else if (avgFrequency < 600 && avgDuration >= 30) {
-      confidence = 'medium';
-      hoursToDelivery = 8;
-      reasoning = 'Early labor phase. Contractions are establishing a pattern.';
+    } else if (prediction.confidence === 'medium') {
+      reasoning = 'Labor is progressing. Contractions are becoming more regular.';
     } else {
-      confidence = 'low';
-      hoursToDelivery = 12;
       reasoning = 'Early labor phase. Continue monitoring as patterns develop.';
     }
 
     if (trend === 'increasing') {
-      hoursToDelivery *= 0.7;
       reasoning += ' Labor is progressing rapidly.';
     } else if (trend === 'decreasing') {
-      hoursToDelivery *= 1.3;
       reasoning += ' Labor progression has slowed.';
     }
 
-    const estimatedTime = new Date(Date.now() + hoursToDelivery * 60 * 60 * 1000);
-
     return {
-      estimatedTime,
-      confidence,
+      estimatedTime: prediction.time,
+      confidence: prediction.confidence,
       reasoning,
       avgFrequency,
       avgDuration,
@@ -296,7 +305,8 @@ export class ContractionService {
         duration: c.duration || null,
         frequency: c.frequency || null
       })),
-      predictedBirthTime: session.predictedBirthTime ? Timestamp.fromDate(session.predictedBirthTime) : null
+      predictedBirthTime: session.predictedBirthTime ? Timestamp.fromDate(session.predictedBirthTime) : null,
+      actualBirthTime: session.actualBirthTime ? Timestamp.fromDate(session.actualBirthTime) : null
     };
   }
 
@@ -312,7 +322,8 @@ export class ContractionService {
         duration: c.duration,
         frequency: c.frequency
       })),
-      predictedBirthTime: data.predictedBirthTime ? data.predictedBirthTime.toDate() : undefined
+      predictedBirthTime: data.predictedBirthTime ? data.predictedBirthTime.toDate() : undefined,
+      actualBirthTime: data.actualBirthTime ? data.actualBirthTime.toDate() : undefined
     };
   }
 

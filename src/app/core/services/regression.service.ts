@@ -206,6 +206,120 @@ export class RegressionService {
   }
 
   /**
+   * Calculates predicted delivery time by finding where upper and lower confidence bands intersect.
+   * This is the same algorithm used by the chart visualization.
+   */
+  predictDeliveryTime(contractions: { startTime: Date, duration?: number }[]): { time: Date | null, confidence: 'low' | 'medium' | 'high' } {
+    // Need completed contractions with duration
+    const points: Point[] = contractions
+      .filter(c => c.duration)
+      .map(c => ({ x: c.startTime.getTime(), y: c.duration! }));
+
+    if (points.length < 3) {
+      return { time: null, confidence: 'low' };
+    }
+
+    // Sort by time
+    points.sort((a, b) => a.x - b.x);
+
+    // Detect active labor start (3 consecutive contractions < 6 minutes apart)
+    let activeLaborStartIndex = 0;
+    const FREQ_THRESHOLD_MS = 6 * 60 * 1000;
+    let consistentCount = 0;
+
+    for (let i = 1; i < points.length; i++) {
+      const freq = points[i].x - points[i - 1].x;
+      if (freq < FREQ_THRESHOLD_MS) {
+        consistentCount++;
+      } else {
+        consistentCount = 0;
+      }
+
+      if (consistentCount >= 3) {
+        activeLaborStartIndex = i - 3;
+        break;
+      }
+    }
+
+    if (activeLaborStartIndex <= 0) {
+      activeLaborStartIndex = Math.floor(points.length * 0.5);
+    }
+
+    // Use active phase points
+    const activePoints = points.slice(activeLaborStartIndex);
+
+    if (activePoints.length < 3) {
+      return { time: null, confidence: 'low' };
+    }
+
+    // Calculate rolling statistics for confidence bands
+    const windowSize = Math.max(3, Math.floor(activePoints.length / 5));
+    const rawUpper: Point[] = [];
+    const rawLower: Point[] = [];
+
+    for (let i = 0; i < activePoints.length; i++) {
+      const start = Math.max(0, i - Math.floor(windowSize / 2));
+      const end = Math.min(activePoints.length - 1, i + Math.floor(windowSize / 2));
+
+      let sum = 0;
+      let sumSq = 0;
+
+      for (let j = start; j <= end; j++) {
+        sum += activePoints[j].y;
+        sumSq += activePoints[j].y * activePoints[j].y;
+      }
+
+      const count = end - start + 1;
+      const mean = sum / count;
+      const variance = (sumSq / count) - (mean * mean);
+      const sd = Math.sqrt(Math.max(0, variance));
+
+      const currentX = activePoints[i].x;
+
+      rawUpper.push({ x: currentX, y: mean + sd * 2.0 });
+      rawLower.push({ x: currentX, y: mean - sd * 2.0 });
+    }
+
+    // Fit models for upper and lower bands
+    const upperFit = this.fitBest(rawUpper, true);
+    const lowerFit = this.fitBest(rawLower, true);
+
+    // Project forward to find intersection
+    const lastTime = points[points.length - 1].x;
+    const maxProjectionTime = lastTime + 12 * 60 * 60 * 1000; // 12 hours
+    const stepSize = 5 * 60 * 1000; // 5 minutes
+
+    for (let t = lastTime + stepSize; t <= maxProjectionTime; t += stepSize) {
+      const uY = upperFit.predict(t);
+      const lY = Math.max(0, lowerFit.predict(t));
+
+      // Check for intersection (bands converge)
+      if (uY <= lY) {
+        // Determine confidence based on active phase characteristics
+        const avgFrequency = activePoints.length > 1
+          ? activePoints.slice(1).reduce((sum, p, i) => sum + (p.x - activePoints[i].x), 0) / (activePoints.length - 1)
+          : 0;
+
+        const avgDuration = activePoints.reduce((sum, p) => sum + p.y, 0) / activePoints.length;
+
+        let confidence: 'low' | 'medium' | 'high' = 'low';
+        if (avgFrequency < 180000 && avgDuration >= 45) { // < 3 min, >= 45 sec
+          confidence = 'high';
+        } else if (avgFrequency < 300000 && avgDuration >= 45) { // < 5 min
+          confidence = 'medium';
+        } else if (activePoints.length >= 10) {
+          confidence = 'medium';
+        }
+
+        return { time: new Date(t), confidence };
+      }
+    }
+
+    // No intersection found within 12 hours
+    return { time: null, confidence: 'low' };
+  }
+
+  /**
    * Gaussian elimination to solve Ax = B
    */
   private solveLinearSystem(A: number[][], B: number[]): number[] {

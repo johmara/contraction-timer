@@ -362,4 +362,72 @@ export class App implements OnInit, OnDestroy {
     // Return to previous tab when user manually exits landscape chart
     this.activeTab = this.previousTab;
   }
+
+  async markBirthTime(): Promise<void> {
+    if (!this.currentSession) return;
+
+    const timeInput = prompt(
+      'Enter birth time (HH:MM) or leave blank for current time:',
+      new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+    );
+
+    if (timeInput === null) return; // User cancelled
+
+    let birthTime: Date;
+    if (timeInput.trim() === '') {
+      birthTime = new Date();
+    } else {
+      // Parse time input
+      const timeMatch = timeInput.match(/(\d{1,2}):(\d{2})/);
+      if (!timeMatch) {
+        alert('Invalid time format. Please use HH:MM format.');
+        return;
+      }
+      
+      birthTime = new Date();
+      birthTime.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
+    }
+
+    await this.contractionService.markBirthTime(birthTime);
+    alert('Birth time marked! 🎉');
+  }
+
+  async clearBirthTime(): Promise<void> {
+    if (!this.currentSession) return;
+    
+    if (confirm('Are you sure you want to clear the birth time?')) {
+      await this.contractionService.markBirthTime(undefined);
+    }
+  }
+
+  isPredictionAccurate(): boolean {
+    if (!this.currentSession?.actualBirthTime || !this.prediction) return false;
+    
+    const diffMs = Math.abs(
+      this.currentSession.actualBirthTime.getTime() - this.prediction.estimatedTime.getTime()
+    );
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    return diffHours <= 1; // Accurate if within 1 hour
+  }
+
+  getPredictionDifference(): string {
+    if (!this.currentSession?.actualBirthTime || !this.prediction) return '';
+    
+    const diffMs = this.currentSession.actualBirthTime.getTime() - this.prediction.estimatedTime.getTime();
+    const diffMinutes = Math.round(Math.abs(diffMs) / (1000 * 60));
+    
+    if (diffMinutes < 60) {
+      return diffMs > 0 
+        ? `${diffMinutes} min late` 
+        : `${diffMinutes} min early`;
+    }
+    
+    const diffHours = Math.floor(diffMinutes / 60);
+    const remainingMinutes = diffMinutes % 60;
+    
+    return diffMs > 0
+      ? `${diffHours}h ${remainingMinutes}m late`
+      : `${diffHours}h ${remainingMinutes}m early`;
+  }
 }
