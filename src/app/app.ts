@@ -153,14 +153,16 @@ export class App implements OnInit, OnDestroy {
   }
 
   formatDuration(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const rounded = Math.round(seconds);
+    const mins = Math.floor(rounded / 60);
+    const secs = rounded % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
   formatFrequency(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const rounded = Math.round(seconds);
+    const mins = Math.floor(rounded / 60);
+    const secs = rounded % 60;
     if (mins > 0) {
       return `${mins}m ${secs}s`;
     }
