@@ -308,7 +308,36 @@ export class App implements OnInit, OnDestroy {
     reader.onload = (e) => {
       try {
         const csvData = e.target?.result as string;
-        const importedCount = this.contractionService.importContractionsFromCSV(csvData);
+        
+        // Detect if CSV has time-only format
+        const lines = csvData.trim().split('\n');
+        let sessionDate: Date | undefined;
+        
+        if (lines.length >= 2) {
+          const firstDataLine = lines[1];
+          const timeOnlyMatch = firstDataLine.match(/^\d+,(\d{1,2}:\d{2}:\d{2})/);
+          
+          if (timeOnlyMatch) {
+            // CSV has time-only format - prompt for date
+            const dateInput = prompt(
+              'This CSV contains time-only data. Please enter the session date (MM/DD/YYYY):',
+              new Date().toLocaleDateString('en-US')
+            );
+            
+            if (!dateInput) {
+              alert('Import cancelled - date is required for time-only CSV files.');
+              return;
+            }
+            
+            sessionDate = new Date(dateInput);
+            if (isNaN(sessionDate.getTime())) {
+              alert('Invalid date format. Please use MM/DD/YYYY format.');
+              return;
+            }
+          }
+        }
+        
+        const importedCount = this.contractionService.importContractionsFromCSV(csvData, sessionDate);
         alert(`Successfully imported ${importedCount} contraction(s)`);
         this.updatePrediction();
       } catch (error: any) {

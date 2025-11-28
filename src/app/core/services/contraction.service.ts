@@ -537,7 +537,7 @@ export class ContractionService {
     }
   }
 
-  importContractionsFromCSV(csvData: string): number {
+  importContractionsFromCSV(csvData: string, sessionDate?: Date): number {
     const session = this.currentSessionSubject.value;
     if (!session) {
       throw new Error('No active session. Please start a session first.');
@@ -553,6 +553,24 @@ export class ContractionService {
       // Skip header row
       const dataLines = lines.slice(1);
       let importedCount = 0;
+
+      // Detect if CSV has time-only format by checking first data line
+      if (dataLines.length > 0) {
+        const firstLine = dataLines[0];
+        const fields = this.parseCSVLine(firstLine);
+        if (fields.length >= 2) {
+          const startTimeStr = fields[1].trim();
+          // Check if it's time-only format (HH:MM:SS without date)
+          const isTimeOnly = /^\d{1,2}:\d{2}:\d{2}$/.test(startTimeStr);
+          
+          if (isTimeOnly && sessionDate) {
+            // Update session start date to match CSV date
+            session.startDate = new Date(sessionDate);
+            this.currentSessionSubject.next(session);
+            this.saveSession(session);
+          }
+        }
+      }
 
       for (const line of dataLines) {
         if (!line.trim()) continue;
@@ -679,10 +697,24 @@ export class ContractionService {
       }
 
       // Try parsing MM/DD/YYYY, HH:MM:SS format
-      const match = timeStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/);
-      if (match) {
-        const [, month, day, year, hour, minute, second] = match;
+      const fullDateMatch = timeStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/);
+      if (fullDateMatch) {
+        const [, month, day, year, hour, minute, second] = fullDateMatch;
         return new Date(+year, +month - 1, +day, +hour, +minute, +second);
+      }
+
+      // Parse time-only format (HH:MM:SS) - use current session date
+      const timeMatch = timeStr.match(/(\d{1,2}):(\d{2}):(\d{2})/);
+      if (timeMatch) {
+        const hours = parseInt(timeMatch[1], 10);
+        const minutes = parseInt(timeMatch[2], 10);
+        const seconds = parseInt(timeMatch[3], 10);
+
+        // Use the current session's start date as the base
+        const session = this.currentSessionSubject.value;
+        const baseDate = session ? new Date(session.startDate) : new Date();
+        baseDate.setHours(hours, minutes, seconds, 0);
+        return baseDate;
       }
 
       return null;
