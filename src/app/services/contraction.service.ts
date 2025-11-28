@@ -119,65 +119,110 @@ export class ContractionService {
       return null;
     }
 
-    // Calculate average duration and frequency
-    const avgDuration = completedContractions.reduce((sum, c) => sum + (c.duration || 0), 0) / completedContractions.length;
+    // Calculate statistics
+    const durations = completedContractions.map(c => c.duration!);
+    const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
+    const minDuration = Math.min(...durations);
+    const maxDuration = Math.max(...durations);
     
-    const frequencies = completedContractions.filter(c => c.frequency).map(c => c.frequency!);
+    // Calculate frequency trend (minutes between contractions)
+    const frequencies = completedContractions
+      .filter(c => c.frequency)
+      .map(c => c.frequency! / 60); // convert to minutes
+    
     const avgFrequency = frequencies.length > 0 
       ? frequencies.reduce((sum, f) => sum + f, 0) / frequencies.length 
       : 0;
 
-    // Determine trend (are contractions getting closer together?)
+    // Analyze labor phase based on duration progression
+    let laborPhase = this.determineLaborPhase(durations, avgDuration, avgFrequency);
+    
+    // Determine trend (are contractions getting closer and longer?)
     let trend: 'increasing' | 'stable' | 'decreasing' = 'stable';
+    let progressionScore = 0;
+    
     if (frequencies.length >= 3) {
+      // Check frequency trend
       const recent = frequencies.slice(-3);
       const earlier = frequencies.slice(0, Math.min(3, frequencies.length - 3));
       if (earlier.length > 0) {
-        const recentAvg = recent.reduce((sum, f) => sum + f, 0) / recent.length;
-        const earlierAvg = earlier.reduce((sum, f) => sum + f, 0) / earlier.length;
-        if (recentAvg < earlierAvg * 0.8) {
-          trend = 'increasing'; // contractions getting closer = increasing intensity
-        } else if (recentAvg > earlierAvg * 1.2) {
-          trend = 'decreasing';
+        const recentFreq = recent.reduce((a, b) => a + b, 0) / recent.length;
+        const earlierFreq = earlier.reduce((a, b) => a + b, 0) / earlier.length;
+        
+        if (recentFreq < earlierFreq * 0.75) {
+          trend = 'increasing'; // contractions getting much closer
+          progressionScore += 3;
+        } else if (recentFreq < earlierFreq * 0.9) {
+          progressionScore += 1; // slight improvement
+        } else if (recentFreq > earlierFreq * 1.2) {
+          trend = 'decreasing'; // labor slowing
+          progressionScore -= 2;
+        }
+      }
+      
+      // Check duration trend
+      const recentDurations = durations.slice(-3);
+      const earlierDurations = durations.slice(0, Math.min(3, durations.length - 3));
+      if (earlierDurations.length > 0) {
+        const recentDur = recentDurations.reduce((a, b) => a + b, 0) / recentDurations.length;
+        const earlierDur = earlierDurations.reduce((a, b) => a + b, 0) / earlierDurations.length;
+        
+        if (recentDur > earlierDur * 1.1) {
+          progressionScore += 2; // durations increasing
         }
       }
     }
 
-    // Prediction logic based on the 5-1-1 rule (contractions 5 min apart, lasting 1 min, for 1 hour)
-    // and active labor progression
+    // Determine delivery time based on phase and trend
+    let hoursToDelivery = 12;
     let confidence: 'low' | 'medium' | 'high' = 'low';
-    let hoursToDelivery = 12; // default estimate
     let reasoning = '';
 
-    if (avgFrequency < 180 && avgDuration >= 45) {
-      // Active labor: contractions < 3 minutes apart, lasting 45+ seconds
+    // Classification based on Friedman labor curves
+    if (avgFrequency <= 3 && avgDuration >= 45) {
+      // ACTIVE PHASE: < 3 min between, > 45 sec duration
       confidence = 'high';
-      hoursToDelivery = 2;
-      reasoning = 'Active labor phase detected. Contractions are frequent and strong.';
-    } else if (avgFrequency < 300 && avgDuration >= 45) {
-      // Late active labor approaching: 3-5 minutes apart, 45+ seconds
+      hoursToDelivery = 1.5 + (avgDuration / 60); // ~1-2 hours
+      reasoning = `🔥 ACTIVE PHASE: Contractions ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Birth typically within 1-2 hours.`;
+    } else if (avgFrequency <= 5 && avgDuration >= 40) {
+      // LATE ACTIVE: 3-5 min between, > 40 sec
+      confidence = 'high';
+      hoursToDelivery = 3 + (avgDuration / 60);
+      reasoning = `⏱️ LATE ACTIVE PHASE: Contractions ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Birth typically within 2-4 hours.`;
+    } else if (avgFrequency <= 8 && avgDuration >= 30) {
+      // EARLY PHASE: 5-8 min between, > 30 sec
       confidence = 'medium';
-      hoursToDelivery = 4;
-      reasoning = 'Progressing well. Contractions are becoming more regular and intense.';
-    } else if (avgFrequency < 600 && avgDuration >= 30) {
-      // Early labor: 5-10 minutes apart, 30+ seconds
-      confidence = 'medium';
-      hoursToDelivery = 8;
-      reasoning = 'Early labor phase. Contractions are establishing a pattern.';
+      hoursToDelivery = 6 + (avgDuration / 30);
+      reasoning = `📊 EARLY PHASE: Contractions ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Birth estimated in 6-10 hours.`;
+    } else if (avgFrequency <= 12 && avgDuration >= 20) {
+      // PRODROMAL: 8-12 min between, 20-30 sec
+      confidence = 'low';
+      hoursToDelivery = 8 + (avgDuration / 20);
+      reasoning = `⏳ PRODROMAL PHASE: Contractions ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Continue monitoring, labor may take 8+ hours.`;
     } else {
-      // Very early or irregular labor
+      // VERY EARLY
       confidence = 'low';
       hoursToDelivery = 12;
-      reasoning = 'Early labor phase. Continue monitoring as patterns develop.';
+      reasoning = `🌙 EARLY LABOR: Contractions are ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Continue monitoring patterns.`;
     }
 
-    // Adjust based on trend
-    if (trend === 'increasing') {
-      hoursToDelivery *= 0.7; // labor progressing faster
-      reasoning += ' Labor is progressing rapidly.';
-    } else if (trend === 'decreasing') {
-      hoursToDelivery *= 1.3; // labor slowing
-      reasoning += ' Labor progression has slowed.';
+    // Adjust based on progression
+    if (trend === 'increasing' && progressionScore > 0) {
+      const factor = 0.8 - (progressionScore * 0.1); // faster progression
+      hoursToDelivery = Math.max(1, hoursToDelivery * factor);
+      if (confidence !== 'high') confidence = 'medium';
+      reasoning = '⚡ ' + reasoning + ' Labor progressing RAPIDLY.';
+    } else if (trend === 'decreasing' && progressionScore < 0) {
+      const factor = 1.2 + (Math.abs(progressionScore) * 0.1); // slower progression
+      hoursToDelivery = hoursToDelivery * factor;
+      if (confidence === 'high') confidence = 'medium';
+      reasoning = '🐢 ' + reasoning + ' Labor progression has slowed.';
+    }
+
+    // Add variability assessment
+    const variability = maxDuration - minDuration;
+    if (variability > maxDuration * 0.5) {
+      reasoning += ` ⚠️ High variability detected (${minDuration.toFixed(0)}-${maxDuration.toFixed(0)}s) - interpret estimate cautiously.`;
     }
 
     const estimatedTime = new Date(Date.now() + hoursToDelivery * 60 * 60 * 1000);
@@ -190,6 +235,14 @@ export class ContractionService {
       avgDuration,
       trend
     };
+  }
+
+  private determineLaborPhase(durations: number[], avgDuration: number, avgFrequency: number): string {
+    if (avgFrequency <= 3 && avgDuration >= 45) return 'active';
+    if (avgFrequency <= 5 && avgDuration >= 40) return 'late-active';
+    if (avgFrequency <= 8 && avgDuration >= 30) return 'early';
+    if (avgFrequency <= 12) return 'prodromal';
+    return 'pre-labor';
   }
 
   getAllSessions(): ContractionSession[] {

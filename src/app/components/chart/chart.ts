@@ -54,55 +54,62 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       data: {
         datasets: [
           {
-            label: 'Duration (sec)',
+            label: 'Upper Envelope (Min/Max)',
+            data: data.upperEnvelope,
+            type: 'line',
+            borderColor: 'rgba(232, 220, 200, 0.9)',
+            backgroundColor: 'rgba(232, 220, 200, 0.15)',
+            borderWidth: 2,
+            fill: '+1',
+            pointRadius: 0,
+            tension: 0.4,
+            order: 1
+          },
+          {
+            label: 'Lower Envelope (Min/Max)',
+            data: data.lowerEnvelope,
+            type: 'line',
+            borderColor: 'rgba(232, 220, 200, 0.9)',
+            borderWidth: 2,
+            fill: false,
+            pointRadius: 0,
+            tension: 0.4,
+            order: 2
+          },
+          {
+            label: 'Upper SD Band (±1σ)',
+            data: data.upperSDEnvelope,
+            type: 'line',
+            borderColor: 'rgba(198, 123, 92, 0.6)',
+            borderWidth: 1.5,
+            borderDash: [4, 4],
+            fill: false,
+            pointRadius: 0,
+            tension: 0.4,
+            order: 3
+          },
+          {
+            label: 'Lower SD Band (±1σ)',
+            data: data.lowerSDEnvelope,
+            type: 'line',
+            borderColor: 'rgba(198, 123, 92, 0.6)',
+            borderWidth: 1.5,
+            borderDash: [4, 4],
+            fill: false,
+            pointRadius: 0,
+            tension: 0.4,
+            order: 4
+          },
+          {
+            label: 'Duration',
             data: data.durationPoints,
-            backgroundColor: 'rgba(255, 182, 193, 0.8)',
-            borderColor: 'rgba(255, 159, 181, 1)',
-            borderWidth: 3,
-            pointRadius: 8,
-            pointHoverRadius: 10
-          },
-          {
-            label: 'Frequency (sec)',
-            data: data.frequencyPoints,
-            backgroundColor: 'rgba(180, 215, 255, 0.8)',
-            borderColor: 'rgba(139, 195, 255, 1)',
-            borderWidth: 3,
-            pointRadius: 8,
-            pointHoverRadius: 10
-          },
-          {
-            label: 'Duration Trend',
-            data: data.durationTrendLine,
-            type: 'line',
-            borderColor: 'rgba(255, 159, 181, 0.6)',
-            borderWidth: 3,
-            borderDash: [5, 5],
-            fill: false,
-            pointRadius: 0,
-            tension: 0.4
-          },
-          {
-            label: 'Frequency Trend',
-            data: data.frequencyTrendLine,
-            type: 'line',
-            borderColor: 'rgba(139, 195, 255, 0.6)',
-            borderWidth: 3,
-            borderDash: [5, 5],
-            fill: false,
-            pointRadius: 0,
-            tension: 0.4
-          },
-          ...(data.intersectionPoint ? [{
-            label: 'Predicted Birth',
-            data: [data.intersectionPoint],
-            backgroundColor: 'rgba(184, 230, 184, 1)',
-            borderColor: 'rgba(158, 217, 158, 1)',
-            borderWidth: 4,
-            pointRadius: 12,
-            pointHoverRadius: 14,
-            pointStyle: 'star'
-          }] : [])
+            backgroundColor: 'rgba(74, 63, 92, 0.8)',
+            borderColor: 'rgba(74, 63, 92, 1)',
+            borderWidth: 2,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            order: 5
+          }
         ]
       },
       options: {
@@ -116,21 +123,24 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
         scales: {
           y: {
             beginAtZero: true,
+            min: 0,
+            max: 120,
+            grace: '10%',
             title: {
               display: true,
-              text: 'Time (seconds)',
+              text: 'LENGTH (seconds)',
               font: {
                 size: 13,
                 weight: 'bold'
               },
-              color: '#7A7A7A'
+              color: '#E8DCC8'
             },
             grid: {
-              color: 'rgba(232, 232, 232, 0.5)',
+              color: 'rgba(232, 220, 200, 0.2)',
               lineWidth: 1
             },
             ticks: {
-              color: '#7A7A7A',
+              color: '#E8DCC8',
               font: {
                 size: 12
               }
@@ -140,23 +150,22 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             type: 'linear',
             title: {
               display: true,
-              text: 'Contraction Number',
+              text: 'TIME (minutes from start)',
               font: {
                 size: 13,
                 weight: 'bold'
               },
-              color: '#7A7A7A'
+              color: '#E8DCC8'
             },
             grid: {
-              color: 'rgba(232, 232, 232, 0.3)',
+              color: 'rgba(232, 220, 200, 0.2)',
               lineWidth: 1
             },
             ticks: {
-              color: '#7A7A7A',
+              color: '#E8DCC8',
               font: {
-                size: 12
-              },
-              stepSize: 1
+                size: 11
+              }
             }
           }
         },
@@ -166,23 +175,19 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             position: 'top',
             labels: {
               font: {
-                size: 12,
+                size: 11,
                 weight: 'bold'
               },
-              padding: 12,
+              padding: 15,
               usePointStyle: true,
               pointStyle: 'circle',
               boxWidth: 8,
               boxHeight: 8,
-              color: '#3D3D3D',
-              filter: (item) => {
-                // Hide trend lines from legend to reduce clutter
-                return !item.text.includes('Trend');
-              }
+              color: '#E8DCC8'
             }
           },
           tooltip: {
-            backgroundColor: 'rgba(61, 61, 61, 0.95)',
+            backgroundColor: 'rgba(45, 42, 50, 0.95)',
             padding: 14,
             titleFont: {
               size: 14,
@@ -193,24 +198,70 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
             },
             cornerRadius: 12,
             displayColors: true,
+            titleColor: '#E8DCC8',
+            bodyColor: '#E8DCC8',
             callbacks: {
-              label: (context) => {
-                const label = context.dataset.label || '';
-                const value = context.parsed.y ?? 0;
-                const mins = Math.floor(value / 60);
-                const secs = Math.floor(value % 60);
-                
-                if (label === 'Predicted Birth') {
-                  const contractionNum = Math.round(context.parsed.x ?? 0);
-                  return [`Predicted at contraction #${contractionNum}`, `Time: ${mins}:${secs.toString().padStart(2, '0')}`];
+              label: (context: any) => {
+                let label = context.dataset.label || '';
+                if (label) {
+                  label += ': ';
                 }
-                
-                return `${label}: ${mins}:${secs.toString().padStart(2, '0')}`;
+                if (context.parsed.y !== null) {
+                  label += context.parsed.y.toFixed(1) + 's';
+                }
+                if (context.parsed.x !== null) {
+                  label += ` @ ${context.parsed.x.toFixed(1)}min`;
+                }
+                return label;
               }
             }
           }
         }
-      }
+      },
+      plugins: [{
+        id: 'customAnnotations',
+        afterDatasetsDraw(chart: any) {
+          const ctx = chart.ctx;
+          const xScale = chart.scales.x;
+          const yScale = chart.scales.y;
+          
+          // Find the critical point (highest value)
+          const data = chart.data.datasets[4].data as any[];
+          if (!data || data.length === 0) return;
+          
+          const maxPoint = data.reduce((max, p) => (p.y > max.y ? p : max));
+          const xPixel = xScale.getPixelForValue(maxPoint.x);
+          const yPixel = yScale.getPixelForValue(maxPoint.y);
+          
+          // Draw vertical line to critical point
+          ctx.save();
+          ctx.strokeStyle = 'rgba(232, 220, 200, 0.6)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.moveTo(xPixel, yScale.getPixelForValue(0));
+          ctx.lineTo(xPixel, yPixel);
+          ctx.stroke();
+          ctx.restore();
+          
+          // Draw annotation label
+          ctx.save();
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillStyle = '#E8DCC8';
+          ctx.textAlign = 'center';
+          ctx.fillText(`Peak: ${maxPoint.y.toFixed(0)}s @ ${maxPoint.x.toFixed(1)}min`, xPixel, yPixel - 20);
+          ctx.restore();
+          
+          // Draw legend for envelope types
+          const lastXPixel = chart.chartArea.right - 10;
+          ctx.save();
+          ctx.font = '11px sans-serif';
+          ctx.fillStyle = '#E8DCC8';
+          ctx.textAlign = 'right';
+          ctx.fillText('Solid: Min/Max | Dashed: ±1σ', lastXPixel, chart.chartArea.top + 20);
+          ctx.restore();
+        }
+      }]
     };
 
     this.chart = new Chart(ctx, config);
@@ -227,167 +278,118 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     const data = this.prepareChartData();
-    this.chart.data.datasets[0].data = data.durationPoints;
-    this.chart.data.datasets[1].data = data.frequencyPoints;
-    this.chart.data.datasets[2].data = data.durationTrendLine;
-    this.chart.data.datasets[3].data = data.frequencyTrendLine;
-    
-    // Update intersection point if exists
-    if (data.intersectionPoint) {
-      if (this.chart.data.datasets.length > 4) {
-        this.chart.data.datasets[4].data = [data.intersectionPoint];
-      } else {
-        this.chart.data.datasets.push({
-          type: 'scatter',
-          label: 'Predicted Birth',
-          data: [data.intersectionPoint],
-          backgroundColor: 'rgba(184, 230, 184, 1)',
-          borderColor: 'rgba(158, 217, 158, 1)',
-          borderWidth: 4,
-          pointRadius: 12,
-          pointHoverRadius: 14,
-          pointStyle: 'star' as const
-        });
-      }
-    } else if (this.chart.data.datasets.length > 4) {
-      this.chart.data.datasets.pop();
-    }
+    this.chart.data.datasets[0].data = data.upperEnvelope;
+    this.chart.data.datasets[1].data = data.lowerEnvelope;
+    this.chart.data.datasets[2].data = data.upperSDEnvelope;
+    this.chart.data.datasets[3].data = data.lowerSDEnvelope;
+    this.chart.data.datasets[4].data = data.durationPoints;
     
     this.chart.update();
   }
 
   private prepareChartData(): { 
     durationPoints: Point[], 
-    frequencyPoints: Point[], 
-    durationTrendLine: Point[],
-    frequencyTrendLine: Point[],
-    intersectionPoint: Point | null
+    upperEnvelope: Point[],
+    lowerEnvelope: Point[],
+    upperSDEnvelope: Point[],
+    lowerSDEnvelope: Point[]
   } {
-    if (!this.session || !this.session.contractions.length) {
+    if (!this.session?.contractions.length) {
       return { 
         durationPoints: [], 
-        frequencyPoints: [], 
-        durationTrendLine: [],
-        frequencyTrendLine: [],
-        intersectionPoint: null
+        upperEnvelope: [],
+        lowerEnvelope: [],
+        upperSDEnvelope: [],
+        lowerSDEnvelope: []
       };
     }
 
     const durationPoints: Point[] = [];
-    const frequencyPoints: Point[] = [];
+    const startTime = this.session.contractions[0].startTime.getTime();
 
-    this.session.contractions.forEach((contraction, index) => {
-      const x = index + 1;
-      
+    this.session.contractions.forEach((contraction: any) => {
+      const minutesFromStart = (contraction.startTime.getTime() - startTime) / 60000;
       if (contraction.duration) {
-        durationPoints.push({ x, y: contraction.duration });
+        durationPoints.push({ x: minutesFromStart, y: contraction.duration });
+      }
+    });
+
+    if (durationPoints.length < 2) {
+      return {
+        durationPoints,
+        upperEnvelope: [],
+        lowerEnvelope: [],
+        upperSDEnvelope: [],
+        lowerSDEnvelope: []
+      };
+    }
+
+    // Sort by x (time)
+    durationPoints.sort((a, b) => a.x - b.x);
+
+    // Calculate moving window envelopes (min/max)
+    const windowSize = Math.max(3, Math.floor(durationPoints.length / 10)); // 10% of data
+    const upperEnvelope: Point[] = [];
+    const lowerEnvelope: Point[] = [];
+
+    for (let i = 0; i < durationPoints.length; i++) {
+      // Define window around current point
+      const start = Math.max(0, i - Math.floor(windowSize / 2));
+      const end = Math.min(durationPoints.length - 1, i + Math.floor(windowSize / 2));
+      
+      // Find max and min in window
+      let maxY = durationPoints[start].y;
+      let minY = durationPoints[start].y;
+      
+      for (let j = start; j <= end; j++) {
+        maxY = Math.max(maxY, durationPoints[j].y);
+        minY = Math.min(minY, durationPoints[j].y);
       }
       
-      if (contraction.frequency) {
-        frequencyPoints.push({ x, y: contraction.frequency });
+      const currentX = durationPoints[i].x;
+      upperEnvelope.push({ x: currentX, y: maxY });
+      lowerEnvelope.push({ x: currentX, y: Math.max(0, minY) });
+    }
+
+    // Calculate SD-based envelopes using sliding window
+    const sdWindowSize = Math.max(5, Math.floor(durationPoints.length / 8)); // 12.5% of data
+    const upperSDEnvelope: Point[] = [];
+    const lowerSDEnvelope: Point[] = [];
+
+    for (let i = 0; i < durationPoints.length; i++) {
+      // Define window for SD calculation
+      const start = Math.max(0, i - Math.floor(sdWindowSize / 2));
+      const end = Math.min(durationPoints.length - 1, i + Math.floor(sdWindowSize / 2));
+      
+      // Calculate mean and SD in window
+      const windowValues = [];
+      for (let j = start; j <= end; j++) {
+        windowValues.push(durationPoints[j].y);
       }
+      
+      const mean = windowValues.reduce((a, b) => a + b, 0) / windowValues.length;
+      const variance = windowValues.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / windowValues.length;
+      const sd = Math.sqrt(variance);
+      
+      const currentX = durationPoints[i].x;
+      upperSDEnvelope.push({ x: currentX, y: Math.min(120, mean + sd) });
+      lowerSDEnvelope.push({ x: currentX, y: Math.max(0, mean - sd) });
+    }
+
+    console.log('Dual Envelope Visualization:', {
+      windowSize,
+      sdWindowSize,
+      points: durationPoints.length,
+      maxDuration: Math.max(...durationPoints.map(p => p.y)),
+      minDuration: Math.min(...durationPoints.map(p => p.y))
     });
 
-    // Calculate trend lines using polynomial regression
-    const durationTrendLine = this.calculateTrendLine(durationPoints, this.session.contractions.length + 10);
-    const frequencyTrendLine = this.calculateTrendLine(frequencyPoints, this.session.contractions.length + 10);
-
-    // Find intersection point
-    const intersectionPoint = this.findIntersection(durationTrendLine, frequencyTrendLine);
-
-    return { durationPoints, frequencyPoints, durationTrendLine, frequencyTrendLine, intersectionPoint };
-  }
-
-  private calculateTrendLine(points: Point[], extendToX: number): Point[] {
-    if (points.length < 2) {
-      return [];
-    }
-
-    // Use polynomial regression (quadratic) for better curve fitting
-    const regression = this.polynomialRegression(points);
-    
-    const startX = Math.min(...points.map(p => p.x));
-    const trendLine: Point[] = [];
-    
-    // Generate curve points
-    for (let x = startX; x <= extendToX; x += 0.5) {
-      const y = regression.predict(x);
-      if (y >= 0) { // Only positive values make sense for time
-        trendLine.push({ x, y });
-      }
-    }
-    
-    return trendLine;
-  }
-
-  private polynomialRegression(points: Point[]): { predict: (x: number) => number } {
-    const n = points.length;
-    
-    // For simplicity, use quadratic fit: y = ax² + bx + c
-    // This gives us curves that can model labor progression
-    
-    let sumX = 0, sumX2 = 0, sumX3 = 0, sumX4 = 0;
-    let sumY = 0, sumXY = 0, sumX2Y = 0;
-    
-    points.forEach(p => {
-      sumX += p.x;
-      sumX2 += p.x * p.x;
-      sumX3 += p.x * p.x * p.x;
-      sumX4 += p.x * p.x * p.x * p.x;
-      sumY += p.y;
-      sumXY += p.x * p.y;
-      sumX2Y += p.x * p.x * p.y;
-    });
-    
-    // Solve system of equations using matrix operations
-    // For quadratic: [n, sumX, sumX2] [c]   [sumY]
-    //                [sumX, sumX2, sumX3] [b] = [sumXY]
-    //                [sumX2, sumX3, sumX4] [a]   [sumX2Y]
-    
-    const denominator = n * (sumX2 * sumX4 - sumX3 * sumX3) 
-                       - sumX * (sumX * sumX4 - sumX2 * sumX3) 
-                       + sumX2 * (sumX * sumX3 - sumX2 * sumX2);
-    
-    if (Math.abs(denominator) < 0.0001) {
-      // Fallback to linear regression
-      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-      const intercept = (sumY - slope * sumX) / n;
-      return { predict: (x: number) => slope * x + intercept };
-    }
-    
-    const a = ((sumX2Y * (sumX2 * n - sumX * sumX) - sumXY * (sumX3 * n - sumX * sumX2) + sumY * (sumX3 * sumX - sumX2 * sumX2)) / denominator);
-    const b = ((n * (sumX3 * sumXY - sumX2 * sumX2Y) - sumX * (sumX * sumX2Y - sumX2 * sumXY) + sumX2 * (sumX * sumXY - sumX2 * sumY)) / denominator);
-    const c = ((sumX2 * (sumX2 * sumX2Y - sumX3 * sumXY) - sumX3 * (sumX * sumX2Y - sumX2 * sumXY) + sumX4 * (sumX * sumXY - sumX2 * sumY)) / denominator);
-    
-    return {
-      predict: (x: number) => a * x * x + b * x + c
+    return { 
+      durationPoints, 
+      upperEnvelope,
+      lowerEnvelope,
+      upperSDEnvelope,
+      lowerSDEnvelope
     };
-  }
-
-  private findIntersection(line1: Point[], line2: Point[]): Point | null {
-    if (line1.length === 0 || line2.length === 0) {
-      return null;
-    }
-
-    // Find where duration trend rises above frequency trend (contractions getting longer and more frequent)
-    // This indicates active labor approaching delivery
-    for (let i = 1; i < Math.min(line1.length, line2.length); i++) {
-      const prev1 = line1[i - 1];
-      const curr1 = line1[i];
-      const prev2 = line2[i - 1];
-      const curr2 = line2[i];
-
-      // Check if lines cross (duration increasing, frequency decreasing, and they meet)
-      if (prev1.y <= prev2.y && curr1.y >= curr2.y) {
-        // Linear interpolation for more accurate intersection
-        const t = (prev2.y - prev1.y) / ((curr1.y - prev1.y) - (curr2.y - prev2.y));
-        const x = prev1.x + t * (curr1.x - prev1.x);
-        const y = prev1.y + t * (curr1.y - prev1.y);
-        
-        return { x, y };
-      }
-    }
-
-    return null;
   }
 }

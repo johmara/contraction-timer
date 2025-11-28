@@ -326,52 +326,149 @@
   background: white;
   padding: 20px;
   border-radius: 20px;
-  box-shadow: 0 2px 8px rgba(74, 63, 92, 0.08);
+  box-shadow: 0 4px 16px rgba(74, 63, 92, 0.12);
   display: flex;
   gap: 16px;
   align-items: flex-start;
-  border-left: 4px solid #9CA3AF;
+  border-left: 5px solid #9CA3AF;
+  transition: all 0.3s ease;
+}
+
+.prediction-card:hover {
+  box-shadow: 0 6px 24px rgba(74, 63, 92, 0.16);
+  transform: translateY(-2px);
 }
 
 .prediction-card.high-confidence {
-  border-left-color: #4A3F5C;
-  background: linear-gradient(to right, #F5F0E8 0%, white 100%);
+  border-left-color: #4CAF50;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, white 100%);
 }
 
 .prediction-card.medium-confidence {
-  border-left-color: #C67B5C;
-  background: linear-gradient(to right, #FFF8F0 0%, white 100%);
+  border-left-color: #FFC107;
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.05) 0%, white 100%);
+}
+
+.prediction-card.low-confidence {
+  border-left-color: #FF9800;
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.05) 0%, white 100%);
 }
 
 .prediction-icon {
-  font-size: 32px;
+  font-size: 40px;
   line-height: 1;
+  min-width: 50px;
 }
 
 .prediction-content {
   flex: 1;
 }
 
-.prediction-time {
-  font-size: 18px;
+.confidence-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.badge-high {
+  background: #4CAF50;
+  color: white;
+}
+
+.badge-medium {
+  background: #FFC107;
+  color: #333;
+}
+
+.badge-low {
+  background: #FF9800;
+  color: white;
+}
+
+.prediction-time {
+  font-size: 22px;
+  font-weight: 800;
   color: #2D2A32;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  font-family: 'Courier New', monospace;
 }
 
 .prediction-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #5A5560;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+}
+
+.time-until {
+  font-size: 13px;
+  color: #C67B5C;
+  font-weight: 600;
+  margin-bottom: 10px;
 }
 
 .prediction-reasoning {
-  font-size: 13px;
+  font-size: 14px;
+  color: #4A3F5C;
+  line-height: 1.6;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  border-left: 3px solid currentColor;
+}
+
+.prediction-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.metric-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #F5F0E8;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.metric-icon {
+  font-size: 16px;
+  min-width: 20px;
+}
+
+.metric-label {
   color: #5A5560;
-  line-height: 1.5;
+  font-weight: 600;
+}
+
+.metric-value {
+  color: #4A3F5C;
+  font-weight: 700;
+  flex: 1;
+  text-align: right;
+}
+
+.metric-value.trend-increasing {
+  color: #4CAF50;
+}
+
+.metric-value.trend-decreasing {
+  color: #FF9800;
+}
+
+.metric-value.trend-stable {
+  color: #2196F3;
 }
 
 /* ========== CONTRACTION HISTORY ========== */

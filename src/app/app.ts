@@ -164,6 +164,13 @@ export class App implements OnInit, OnDestroy {
     return `${secs}s`;
   }
 
+  getHoursUntilDelivery(prediction: BirthPrediction): number {
+    const now = Date.now();
+    const deliveryTime = prediction.estimatedTime.getTime();
+    const ms = deliveryTime - now;
+    return Math.round((ms / (1000 * 60 * 60)) * 10) / 10; // round to 1 decimal
+  }
+
   getReversedContractions(): Contraction[] {
     return this.currentSession ? [...this.currentSession.contractions].reverse() : [];
   }
