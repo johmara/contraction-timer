@@ -27,6 +27,8 @@ export class App implements OnInit, OnDestroy {
   chartSession: ContractionSession | null = null;
   showUserMenu = false;
   isPredictionExpanded = false;
+  isLandscape = false;
+  private previousTab: TabType = 'current';
   private subscriptions = new Subscription();
   
   @ViewChild('restoreFileInput') restoreFileInput!: ElementRef<HTMLInputElement>;
@@ -69,10 +71,43 @@ export class App implements OnInit, OnDestroy {
 
     // Load all sessions on init
     this.loadAllSessions();
+
+    // Handle screen orientation changes
+    this.handleOrientationChange();
+    window.addEventListener('resize', this.handleOrientationChange.bind(this));
+    if (screen.orientation) {
+      screen.orientation.addEventListener('change', this.handleOrientationChange.bind(this));
+    }
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    window.removeEventListener('resize', this.handleOrientationChange.bind(this));
+    if (screen.orientation) {
+      screen.orientation.removeEventListener('change', this.handleOrientationChange.bind(this));
+    }
+  }
+
+  handleOrientationChange(): void {
+    // Only apply on mobile/tablet devices (max width 1024px)
+    const isMobileOrTablet = window.innerWidth <= 1024;
+    const isCurrentlyLandscape = window.innerWidth > window.innerHeight;
+    
+    // Only switch tabs if orientation actually changed and on mobile/tablet
+    if (isMobileOrTablet && isCurrentlyLandscape !== this.isLandscape) {
+      this.isLandscape = isCurrentlyLandscape;
+      
+      if (this.isLandscape && this.currentSession && this.currentSession.contractions.length > 0) {
+        // Entering landscape mode with active session - switch to chart (only if on current tab)
+        if (this.activeTab === 'current') {
+          this.previousTab = this.activeTab;
+          this.activeTab = 'chart';
+        }
+      } else if (!this.isLandscape && this.activeTab === 'chart' && this.previousTab === 'current') {
+        // Exiting landscape mode - return to previous tab only if we auto-switched from current
+        this.activeTab = this.previousTab;
+      }
+    }
   }
 
   loadAllSessions(): void {
