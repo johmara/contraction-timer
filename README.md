@@ -6,18 +6,20 @@ A **production-ready clinical-grade web application** for tracking uterine contr
 
 ### Core Functionality
 - ⏱️ **Precision Contraction Tracking**: Real-time duration and frequency measurement
-- 📊 **Visual Analytics**: Interactive scatter plot with trend analysis and confidence bands
-- 🤰 **Clinical Prediction Algorithm**: Friedman curve-based labor phase classification
-- 💾 **Multi-Format Export**: CSV and JSON formats for medical records and analysis
+- 📊 **Visual Analytics**: Interactive scatter plot with polynomial regression and prediction bands
+- 🤰 **Clinical Prediction Algorithm**: Friedman curve-based labor phase classification with delivery time estimates
+- 💾 **Multi-Format Import/Export**: CSV and JSON formats for medical records and data portability
 - 📱 **Progressive Web App**: Installable on iOS/Android with offline support
-- 🔒 **Data Privacy**: GitHub authentication, no cloud database required
+- 🔒 **Data Privacy**: Optional GitHub authentication, all data stored locally in browser
 
 ### User Experience
-- **Mobile-First Design**: Responsive interface optimized for clinical bedside use
+- **Mobile-First Design**: Responsive interface optimized for clinical bedside use with landscape mode
+- **Landscape Mode**: Automatic chart display with immersive full-screen visualization on mobile/tablet
 - **Real-Time Statistics**: Live frequency, duration, and trend metrics
-- **Session History**: Archive and review past labor patterns
-- **Backup/Restore**: Complete session backup in JSON format
-- **Automatic Calculations**: Frequency and duration computed instantly
+- **Session History**: Archive and review past labor patterns with inline charts
+- **Backup/Restore**: Complete session backup and restoration in JSON format
+- **CSV Import/Export**: Import existing contraction data or export for external analysis
+- **Automatic Calculations**: Frequency and duration computed instantly with visual feedback
 
 ## 📋 Clinical Algorithm
 
@@ -81,29 +83,41 @@ Visit `http://localhost:4200` - app starts with test data automatically loaded i
 
 ### Analyzing Results
 - **Statistics Card**: Shows total count, frequency, and average duration
-- **Prediction Card**: Displays phase, estimated time, and confidence level
-- **Chart Tab**: Visual scatter plot with trend lines
+- **Prediction Card**: Displays phase, estimated time, and confidence level (tap to expand details)
+- **Chart Tab**: Visual scatter plot with polynomial regression, confidence bands, and delivery prediction
+- **Landscape Mode**: Rotate device to landscape for immersive full-screen chart (auto-switches on mobile)
 - **Export**: Download data for medical records (CSV or JSON)
 
 ### Data Management
 - **Backup**: History tab → "Backup All" → JSON file downloaded
 - **Restore**: History tab → "Restore" → Select JSON file
 - **CSV Export**: Per-session export for spreadsheet analysis
-- **Delete**: Individual sessions can be removed
+- **CSV Import**: Import existing contraction data into active session
+- **Delete**: Individual sessions or contractions can be removed
 
 ## 📈 Visual Analytics
 
-### Scatter Plot Features
+### Advanced Chart Features
 - **X-Axis**: Time-of-day (HH:mm format)
 - **Y-Axis**: Contraction duration (MM:SS format)
-- **Dots**: Individual contractions
-- **Trend Line**: Smoothed moving average
-- **Confidence Bands**: ±1σ variability envelope
+- **Blue Dots**: Individual contractions
+- **Golden Bands**: Statistical confidence envelope (±2σ variability)
+- **Projected Lines**: Forward prediction showing labor progression pattern
+- **Delivery Prediction**: Red dot indicating estimated time when contractions converge
+- **Smart Detection**: Automatically identifies active labor phase onset
+- **Polynomial Regression**: Best-fit model selection (auto-weighted for recent data)
+
+### Landscape Mode (Mobile/Tablet)
+- **Auto-Switch**: Automatically displays chart when rotating to landscape from Current tab
+- **Full-Screen**: Immersive view with hidden navigation and headers
+- **Exit Button**: Tap X in top-left corner to return to previous view
+- **No Scrolling**: Chart fits perfectly to viewport without overflow
 
 ### Interpretation
-- **Ascending trend**: Contractions getting longer/closer
-- **Horizontal trend**: Stable pattern
+- **Ascending trend**: Contractions getting longer/closer → labor accelerating
+- **Horizontal trend**: Stable pattern → steady progression
 - **Descending trend**: Labor potentially slowing
+- **Funnel narrowing**: Prediction bands converging indicates approaching delivery
 
 ## 🔒 Security & Privacy
 
@@ -140,9 +154,18 @@ Perfect for:
 - Medical records
 - Spreadsheet analysis
 - Easy sharing with healthcare providers
-- Includes prediction summary
+- Data portability between devices
 
 **Columns**: Time, Duration (MM:SS), Frequency, Interval, Prediction Data
+
+### CSV Import
+Perfect for:
+- Migrating data from other apps
+- Importing manually recorded contractions
+- Restoring from backup spreadsheets
+- Continuing sessions across devices
+
+**Format**: Same as CSV export - Time, Duration, Frequency columns
 
 ### JSON Export
 Perfect for:
@@ -191,29 +214,34 @@ Perfect for:
 | Component | Technology |
 |-----------|-----------|
 | **Frontend** | Angular 20.3, TypeScript 5.8 |
-| **Charts** | Chart.js 4.5 with date-fns |
-| **Auth** | Firebase Auth (GitHub OAuth) |
-| **Storage** | Browser localStorage |
+| **Charts** | Chart.js 4.5 with date-fns adapter |
+| **Regression** | Custom polynomial & exponential curve fitting |
+| **Auth** | Firebase Auth (GitHub OAuth) - Optional |
+| **Storage** | Browser localStorage (no backend) |
 | **PWA** | @angular/service-worker |
-| **Build** | Angular CLI with optimization |
-| **Deployment** | GitHub Pages + GitHub Actions |
+| **Build** | Angular CLI with production optimization |
+| **Deployment** | GitHub Pages + GitHub Actions CI/CD |
+| **Testing** | Vitest with Angular testing utilities |
 
 ### Bundle Size
-- **Main Bundle**: 698 KB (188 KB gzipped)
-- **Compression**: Optimal for 3G/4G networks
+- **Main Bundle**: ~717 KB (~193 KB gzipped)
+- **Styles**: ~2 KB (730 bytes gzipped)
+- **Total**: ~719 KB (~194 KB gzipped)
+- **Compression**: Optimized for 3G/4G networks
 - **Offline**: Service worker caching
 - **Performance**: LCP < 2s on modern devices
 
 ## 📦 Package Dependencies
 
 ### Production
-- `@angular/*` - Web framework
+- `@angular/*` - Web framework (v20.3)
 - `@angular/fire` - Firebase integration
-- `chart.js` - Charting library
+- `chart.js` - Charting library (v4.5)
 - `chartjs-adapter-date-fns` - Time axis support
 - `date-fns` - Date manipulation
-- `firebase` - Authentication
+- `firebase` - Authentication (optional)
 - `rxjs` - Reactive programming
+- `tslib` - TypeScript runtime helpers
 
 ## 🚀 Deployment Guide
 
@@ -249,31 +277,44 @@ npm run build
 ```
 src/
 ├── app/
-│   ├── components/
-│   │   ├── chart/           # Scatter plot visualization
+│   ├── core/                    # Core module (singleton services)
+│   │   ├── models/
+│   │   │   └── contraction.model.ts  # TypeScript interfaces
+│   │   ├── services/
+│   │   │   ├── auth.service.ts       # GitHub authentication
+│   │   │   ├── contraction.service.ts # Business logic & storage
+│   │   │   └── regression.service.ts  # Polynomial/exponential fitting
+│   │   └── core.module.ts
+│   ├── features/                # Feature modules
+│   │   ├── chart/              # Chart visualization component
 │   │   │   ├── chart.ts
 │   │   │   ├── chart.html
-│   │   │   └── chart.css
-│   │   └── login/           # GitHub auth
-│   ├── models/
-│   │   └── contraction.model.ts  # TypeScript interfaces
-│   ├── services/
-│   │   ├── auth.service.ts       # GitHub authentication
-│   │   └── contraction.service.ts # Business logic
-│   ├── app.ts              # Main component
-│   ├── app.html            # Main template
-│   └── app.css             # Styles
+│   │   │   ├── chart.css
+│   │   │   └── chart.module.ts
+│   │   └── login/              # GitHub auth component
+│   │       ├── login.ts
+│   │       ├── login.html
+│   │       ├── login.css
+│   │       └── login.module.ts
+│   ├── shared/                 # Shared module
+│   │   └── shared.module.ts
+│   ├── app.ts                  # Main component
+│   ├── app.html                # Main template
+│   ├── app.css                 # Styles
+│   ├── app-module.ts           # Root module
+│   └── app-routing-module.ts   # Routing (future use)
 ├── environments/
-│   ├── environment.ts       # Development config
-│   └── environment.prod.ts  # Production config
-├── index.html              # PWA meta tags
-└── styles.css             # Global styles
+│   ├── environment.ts          # Development config
+│   └── environment.prod.ts     # Production config
+├── index.html                  # PWA meta tags
+├── main.ts                     # Bootstrap
+└── styles.css                  # Global styles
 public/
-├── manifest.json          # PWA manifest
-└── favicon.ico           # App icon
+├── manifest.json               # PWA manifest
+└── favicon.ico                 # App icon
 .github/
 └── workflows/
-    └── deploy.yml        # CI/CD pipeline
+    └── deploy.yml              # CI/CD pipeline
 ```
 
 ## 🧪 Development
@@ -293,11 +334,23 @@ npm run build
 ### Run Tests
 ```bash
 npm test
+# Runs Vitest test suite via Angular CLI
+```
+
+### Test Single File
+```bash
+npx vitest run src/app/core/services/contraction.service.spec.ts
 ```
 
 ### Type Checking
 ```bash
 npx tsc --noEmit
+```
+
+### Code Formatting
+```bash
+npx prettier --write .
+# Uses configuration from package.json
 ```
 
 ## 📊 Prediction Algorithm Details
@@ -310,11 +363,20 @@ npx tsc --noEmit
 5. **Estimate Time**: Base estimate + trend adjustment
 6. **Assess Confidence**: Based on data consistency and labor regularity
 
+### Chart Analysis Algorithm
+1. **Active Labor Detection**: Identifies when contractions reach < 6 min frequency for 3+ consecutive events
+2. **Statistical Modeling**: Calculates rolling mean and standard deviation (±2σ bands)
+3. **Regression Fitting**: Auto-selects best model (polynomial vs exponential) with weighted recent data
+4. **Forward Projection**: Extends confidence bands up to 12 hours ahead
+5. **Delivery Prediction**: Calculates intersection point where bands converge (funnel closes)
+6. **Visual Representation**: Displays actual data, confidence envelope, and projected delivery time
+
 ### Adjustments
 - **High Variability**: Reduces confidence level
 - **Accelerating Trend**: Reduces estimated time by 20-30%
 - **Decelerating Trend**: Increases estimated time by 20-30%
 - **Limited Data**: Conservative estimates with low confidence
+- **Weighted Regression**: More recent contractions have higher influence on predictions
 
 ## 🤝 Contributing
 
