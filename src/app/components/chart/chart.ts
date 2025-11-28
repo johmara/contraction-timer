@@ -2,13 +2,9 @@ import { Component, Input, OnChanges, SimpleChanges, AfterViewInit, ViewChild, E
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import { ContractionSession } from '../../models/contraction.model';
+import { RegressionService, Point } from '../../services/regression.service';
 
 Chart.register(...registerables);
-
-interface Point {
-  x: number;
-  y: number;
-}
 
 @Component({
   selector: 'app-chart',
@@ -21,6 +17,8 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('chartCanvas') chartCanvas!: ElementRef<HTMLCanvasElement>;
   
   private chart: Chart | null = null;
+
+  constructor(private regressionService: RegressionService) {}
 
   ngAfterViewInit(): void {
     this.createChart();
@@ -284,23 +282,19 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     // Sort by x (time)
     scatterPoints.sort((a, b) => a.x - b.x);
 
-    // Calculate trend line using moving average
-    const windowSize = Math.max(3, Math.floor(scatterPoints.length / 4));
-    const trendLine: Point[] = [];
-    const upperBand: Point[] = [];
-    const lowerBand: Point[] = [];
-
+    // 1. Calculate raw Moving Average statistics first
+    const windowSize = Math.max(3, Math.floor(scatterPoints.length / 5)); // Smaller window for more responsiveness
+    const rawUpper: Point[] = [];
+    const rawLower: Point[] = [];
+    
     for (let i = 0; i < scatterPoints.length; i++) {
       const start = Math.max(0, i - Math.floor(windowSize / 2));
       const end = Math.min(scatterPoints.length - 1, i + Math.floor(windowSize / 2));
       
-      // Calculate mean
       let sum = 0;
       let sumSq = 0;
-      const windowValues = [];
       
       for (let j = start; j <= end; j++) {
-        windowValues.push(scatterPoints[j].y);
         sum += scatterPoints[j].y;
         sumSq += scatterPoints[j].y * scatterPoints[j].y;
       }
@@ -311,20 +305,50 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       const sd = Math.sqrt(Math.max(0, variance));
       
       const currentX = scatterPoints[i].x;
-      trendLine.push({ x: currentX, y: mean });
-      // Use 2 SD to create a wider "clinical range" funnel
-      // This mimics the reference graph where the envelope captures most points
-      upperBand.push({ x: currentX, y: Math.min(180, mean + sd * 2.0) });
-      lowerBand.push({ x: currentX, y: Math.max(0, mean - sd * 2.0) });
+      
+      // Raw envelope points (2 SD)
+      rawUpper.push({ x: currentX, y: mean + sd * 2.0 });
+      rawLower.push({ x: currentX, y: mean - sd * 2.0 });
     }
 
-    console.log('Chart Data Summary:', {
-      dataPoints: scatterPoints.length,
-      windowSize,
-      maxDuration: Math.max(...scatterPoints.map(p => p.y)),
-      minDuration: Math.min(...scatterPoints.map(p => p.y)),
-      avgDuration: (scatterPoints.reduce((a, p) => a + p.y, 0) / scatterPoints.length).toFixed(1)
+    // 2. Use Regression Service to fit smooth curves to these raw statistical bounds
+    // This creates the "Smooth Enveloping Lines" requested
+    const upperFit = this.regressionService.fitPolynomial(rawUpper, 2);
+    const lowerFit = this.regressionService.fitPolynomial(rawLower, 2);
+    const trendFit = this.regressionService.fitPolynomial(scatterPoints, 2);
+
+    const trendLine: Point[] = [];
+    const upperBand: Point[] = [];
+    const lowerBand: Point[] = [];
+
+    // Generate points for the smooth curves
+    scatterPoints.forEach(p => {
+      trendLine.push({ x: p.x, y: trendFit.predict(p.x) });
+      upperBand.push({ x: p.x, y: Math.min(180, upperFit.predict(p.x)) });
+      lowerBand.push({ x: p.x, y: Math.max(0, lowerFit.predict(p.x)) });
     });
+
+    // 3. Prediction: Project forward to find "Intersection"
+    // In this context, "Intersection" usually means when the curve hits the delivery threshold
+    // or when the acceleration becomes vertical (singularity).
+    // We'll project 2 hours into the future.
+    const lastTime = scatterPoints[scatterPoints.length - 1].x;
+    const futureTime = lastTime + 2 * 60 * 60 * 1000; // +2 hours
+    const steps = 20;
+    
+    for (let i = 1; i <= steps; i++) {
+      const futureT = lastTime + (i * (futureTime - lastTime) / steps);
+      // We can visualize this projection if we extend the datasets, 
+      // but for now we'll just keep the smooth lines for the existing data range
+      // as adding "future" points might confuse the X-axis scaling unless handled carefully.
+      // However, we can log the predicted time to 90s (Transition).
+      
+      const predY = trendFit.predict(futureT);
+      if (predY >= 90) {
+        // This would be the predicted transition time
+        // console.log('Predicted Transition:', new Date(futureT));
+      }
+    }
 
     return { 
       scatterPoints, 
