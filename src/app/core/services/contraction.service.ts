@@ -1,38 +1,83 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { 
+  Firestore, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc,
+  getDocs,
+  query,
+  where,
+  onSnapshot,
+  deleteDoc,
+  Timestamp
+} from '@angular/fire/firestore';
 import { Contraction, ContractionSession, BirthPrediction } from '../models/contraction.model';
-import { environment } from '../../../environments/environment';
+import { AuthService } from './auth.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ContractionService {
+  private firestore = inject(Firestore);
   private readonly STORAGE_KEY = 'contraction_sessions';
   private currentSessionSubject = new BehaviorSubject<ContractionSession | null>(null);
   public currentSession$ = this.currentSessionSubject.asObservable();
+  private unsubscribe: (() => void) | null = null;
 
-  constructor() {
-    console.log('🔧 ContractionService constructor called');
-    console.log('🔧 Environment localMode:', environment.localMode);
-    
-    this.loadActiveSession();
-    
-    // In local mode, seed with realistic test data if no data exists
-    if (environment.localMode) {
-      console.log('🧪 Local Mode enabled - checking for test data');
-      this.seedTestDataIfEmpty();
+  constructor(private authService: AuthService) {
+    // Subscribe to auth changes and load user's data
+    this.authService.currentUser$.subscribe(user => {
+      if (user) {
+        this.loadActiveSessionFromFirestore(user.uid);
+      } else {
+        this.loadActiveSessionFromLocalStorage();
+      }
+    });
+  }
+
+  private async loadActiveSessionFromFirestore(userId: string): Promise<void> {
+    try {
+      // Query for active sessions
+      const sessionsRef = collection(this.firestore, `users/${userId}/sessions`);
+      const q = query(sessionsRef, where('isActive', '==', true));
+      
+      // Set up real-time listener
+      this.unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const doc = snapshot.docs[0];
+          const data = doc.data();
+          const session = this.convertFirestoreToSession(doc.id, data);
+          this.currentSessionSubject.next(session);
+        } else {
+          this.currentSessionSubject.next(null);
+        }
+      });
+    } catch (error) {
+      console.error('Error loading session from Firestore:', error);
+      this.loadActiveSessionFromLocalStorage();
     }
   }
 
-  startNewSession(): ContractionSession {
+  private loadActiveSessionFromLocalStorage(): void {
+    const sessions = this.getAllSessionsFromLocalStorage();
+    const activeSession = sessions.find(s => s.isActive);
+    if (activeSession) {
+      this.currentSessionSubject.next(activeSession);
+    }
+  }
+
+  async startNewSession(): Promise<ContractionSession> {
     const session: ContractionSession = {
       id: this.generateId(),
       startDate: new Date(),
       contractions: [],
       isActive: true
     };
+    
     this.currentSessionSubject.next(session);
-    this.saveSession(session);
+    await this.saveSession(session);
     return session;
   }
 
@@ -99,11 +144,11 @@ export class ContractionService {
     this.saveSession(session);
   }
 
-  endSession(): void {
+  async endSession(): Promise<void> {
     const session = this.currentSessionSubject.value;
     if (session) {
       session.isActive = false;
-      this.saveSession(session);
+      await this.saveSession(session);
       this.currentSessionSubject.next(null);
     }
   }
@@ -119,110 +164,58 @@ export class ContractionService {
       return null;
     }
 
-    // Calculate statistics
-    const durations = completedContractions.map(c => c.duration!);
-    const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
-    const minDuration = Math.min(...durations);
-    const maxDuration = Math.max(...durations);
+    // Calculate average duration and frequency
+    const avgDuration = completedContractions.reduce((sum, c) => sum + (c.duration || 0), 0) / completedContractions.length;
     
-    // Calculate frequency trend (minutes between contractions)
-    const frequencies = completedContractions
-      .filter(c => c.frequency)
-      .map(c => c.frequency! / 60); // convert to minutes
-    
+    const frequencies = completedContractions.filter(c => c.frequency).map(c => c.frequency!);
     const avgFrequency = frequencies.length > 0 
       ? frequencies.reduce((sum, f) => sum + f, 0) / frequencies.length 
       : 0;
 
-    // Analyze labor phase based on duration progression
-    let laborPhase = this.determineLaborPhase(durations, avgDuration, avgFrequency);
-    
-    // Determine trend (are contractions getting closer and longer?)
+    // Determine trend (are contractions getting closer together?)
     let trend: 'increasing' | 'stable' | 'decreasing' = 'stable';
-    let progressionScore = 0;
-    
     if (frequencies.length >= 3) {
-      // Check frequency trend
       const recent = frequencies.slice(-3);
       const earlier = frequencies.slice(0, Math.min(3, frequencies.length - 3));
       if (earlier.length > 0) {
-        const recentFreq = recent.reduce((a, b) => a + b, 0) / recent.length;
-        const earlierFreq = earlier.reduce((a, b) => a + b, 0) / earlier.length;
-        
-        if (recentFreq < earlierFreq * 0.75) {
-          trend = 'increasing'; // contractions getting much closer
-          progressionScore += 3;
-        } else if (recentFreq < earlierFreq * 0.9) {
-          progressionScore += 1; // slight improvement
-        } else if (recentFreq > earlierFreq * 1.2) {
-          trend = 'decreasing'; // labor slowing
-          progressionScore -= 2;
-        }
-      }
-      
-      // Check duration trend
-      const recentDurations = durations.slice(-3);
-      const earlierDurations = durations.slice(0, Math.min(3, durations.length - 3));
-      if (earlierDurations.length > 0) {
-        const recentDur = recentDurations.reduce((a, b) => a + b, 0) / recentDurations.length;
-        const earlierDur = earlierDurations.reduce((a, b) => a + b, 0) / earlierDurations.length;
-        
-        if (recentDur > earlierDur * 1.1) {
-          progressionScore += 2; // durations increasing
+        const recentAvg = recent.reduce((sum, f) => sum + f, 0) / recent.length;
+        const earlierAvg = earlier.reduce((sum, f) => sum + f, 0) / earlier.length;
+        if (recentAvg < earlierAvg * 0.8) {
+          trend = 'increasing';
+        } else if (recentAvg > earlierAvg * 1.2) {
+          trend = 'decreasing';
         }
       }
     }
 
-    // Determine delivery time based on phase and trend
-    let hoursToDelivery = 12;
     let confidence: 'low' | 'medium' | 'high' = 'low';
+    let hoursToDelivery = 12;
     let reasoning = '';
 
-    // Classification based on Friedman labor curves
-    if (avgFrequency <= 3 && avgDuration >= 45) {
-      // ACTIVE PHASE: < 3 min between, > 45 sec duration
+    if (avgFrequency < 180 && avgDuration >= 45) {
       confidence = 'high';
-      hoursToDelivery = 1.5 + (avgDuration / 60); // ~1-2 hours
-      reasoning = `🔥 ACTIVE PHASE: Contractions ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Birth typically within 1-2 hours.`;
-    } else if (avgFrequency <= 5 && avgDuration >= 40) {
-      // LATE ACTIVE: 3-5 min between, > 40 sec
-      confidence = 'high';
-      hoursToDelivery = 3 + (avgDuration / 60);
-      reasoning = `⏱️ LATE ACTIVE PHASE: Contractions ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Birth typically within 2-4 hours.`;
-    } else if (avgFrequency <= 8 && avgDuration >= 30) {
-      // EARLY PHASE: 5-8 min between, > 30 sec
+      hoursToDelivery = 2;
+      reasoning = 'Active labor phase detected. Contractions are frequent and strong.';
+    } else if (avgFrequency < 300 && avgDuration >= 45) {
       confidence = 'medium';
-      hoursToDelivery = 6 + (avgDuration / 30);
-      reasoning = `📊 EARLY PHASE: Contractions ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Birth estimated in 6-10 hours.`;
-    } else if (avgFrequency <= 12 && avgDuration >= 20) {
-      // PRODROMAL: 8-12 min between, 20-30 sec
-      confidence = 'low';
-      hoursToDelivery = 8 + (avgDuration / 20);
-      reasoning = `⏳ PRODROMAL PHASE: Contractions ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Continue monitoring, labor may take 8+ hours.`;
+      hoursToDelivery = 4;
+      reasoning = 'Progressing well. Contractions are becoming more regular and intense.';
+    } else if (avgFrequency < 600 && avgDuration >= 30) {
+      confidence = 'medium';
+      hoursToDelivery = 8;
+      reasoning = 'Early labor phase. Contractions are establishing a pattern.';
     } else {
-      // VERY EARLY
       confidence = 'low';
       hoursToDelivery = 12;
-      reasoning = `🌙 EARLY LABOR: Contractions are ${avgFrequency.toFixed(1)}min apart, ${avgDuration.toFixed(0)}s long. Continue monitoring patterns.`;
+      reasoning = 'Early labor phase. Continue monitoring as patterns develop.';
     }
 
-    // Adjust based on progression
-    if (trend === 'increasing' && progressionScore > 0) {
-      const factor = 0.8 - (progressionScore * 0.1); // faster progression
-      hoursToDelivery = Math.max(1, hoursToDelivery * factor);
-      if (confidence !== 'high') confidence = 'medium';
-      reasoning = '⚡ ' + reasoning + ' Labor progressing RAPIDLY.';
-    } else if (trend === 'decreasing' && progressionScore < 0) {
-      const factor = 1.2 + (Math.abs(progressionScore) * 0.1); // slower progression
-      hoursToDelivery = hoursToDelivery * factor;
-      if (confidence === 'high') confidence = 'medium';
-      reasoning = '🐢 ' + reasoning + ' Labor progression has slowed.';
-    }
-
-    // Add variability assessment
-    const variability = maxDuration - minDuration;
-    if (variability > maxDuration * 0.5) {
-      reasoning += ` ⚠️ High variability detected (${minDuration.toFixed(0)}-${maxDuration.toFixed(0)}s) - interpret estimate cautiously.`;
+    if (trend === 'increasing') {
+      hoursToDelivery *= 0.7;
+      reasoning += ' Labor is progressing rapidly.';
+    } else if (trend === 'decreasing') {
+      hoursToDelivery *= 1.3;
+      reasoning += ' Labor progression has slowed.';
     }
 
     const estimatedTime = new Date(Date.now() + hoursToDelivery * 60 * 60 * 1000);
@@ -237,29 +230,28 @@ export class ContractionService {
     };
   }
 
-  private determineLaborPhase(durations: number[], avgDuration: number, avgFrequency: number): string {
-    if (avgFrequency <= 3 && avgDuration >= 45) return 'active';
-    if (avgFrequency <= 5 && avgDuration >= 40) return 'late-active';
-    if (avgFrequency <= 8 && avgDuration >= 30) return 'early';
-    if (avgFrequency <= 12) return 'prodromal';
-    return 'pre-labor';
-  }
-
-  getAllSessions(): ContractionSession[] {
-    const stored = localStorage.getItem(this.STORAGE_KEY);
-    return stored ? JSON.parse(stored, this.dateReviver) : [];
-  }
-
-  private loadActiveSession(): void {
-    const sessions = this.getAllSessions();
-    const activeSession = sessions.find(s => s.isActive);
-    if (activeSession) {
-      this.currentSessionSubject.next(activeSession);
+  private async saveSession(session: ContractionSession): Promise<void> {
+    const userId = this.authService.getUserId();
+    
+    if (userId) {
+      // Save to Firestore
+      try {
+        const sessionRef = doc(this.firestore, `users/${userId}/sessions`, session.id);
+        const sessionData = this.convertSessionToFirestore(session);
+        await setDoc(sessionRef, sessionData);
+      } catch (error) {
+        console.error('Error saving to Firestore:', error);
+        // Fall back to localStorage
+        this.saveToLocalStorage(session);
+      }
+    } else {
+      // Save to localStorage if not authenticated
+      this.saveToLocalStorage(session);
     }
   }
 
-  private saveSession(session: ContractionSession): void {
-    const sessions = this.getAllSessions();
+  private saveToLocalStorage(session: ContractionSession): void {
+    const sessions = this.getAllSessionsFromLocalStorage();
     const index = sessions.findIndex(s => s.id === session.id);
     
     if (index >= 0) {
@@ -269,6 +261,59 @@ export class ContractionService {
     }
     
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sessions));
+  }
+
+  private getAllSessionsFromLocalStorage(): ContractionSession[] {
+    const stored = localStorage.getItem(this.STORAGE_KEY);
+    return stored ? JSON.parse(stored, this.dateReviver) : [];
+  }
+
+  async getAllSessions(): Promise<ContractionSession[]> {
+    const userId = this.authService.getUserId();
+    
+    if (userId) {
+      try {
+        const sessionsRef = collection(this.firestore, `users/${userId}/sessions`);
+        const snapshot = await getDocs(sessionsRef);
+        return snapshot.docs.map(doc => this.convertFirestoreToSession(doc.id, doc.data()));
+      } catch (error) {
+        console.error('Error loading sessions from Firestore:', error);
+        return this.getAllSessionsFromLocalStorage();
+      }
+    } else {
+      return this.getAllSessionsFromLocalStorage();
+    }
+  }
+
+  private convertSessionToFirestore(session: ContractionSession): any {
+    return {
+      startDate: Timestamp.fromDate(session.startDate),
+      isActive: session.isActive,
+      contractions: session.contractions.map(c => ({
+        id: c.id,
+        startTime: Timestamp.fromDate(c.startTime),
+        endTime: c.endTime ? Timestamp.fromDate(c.endTime) : null,
+        duration: c.duration || null,
+        frequency: c.frequency || null
+      })),
+      predictedBirthTime: session.predictedBirthTime ? Timestamp.fromDate(session.predictedBirthTime) : null
+    };
+  }
+
+  private convertFirestoreToSession(id: string, data: any): ContractionSession {
+    return {
+      id,
+      startDate: data.startDate.toDate(),
+      isActive: data.isActive,
+      contractions: (data.contractions || []).map((c: any) => ({
+        id: c.id,
+        startTime: c.startTime.toDate(),
+        endTime: c.endTime ? c.endTime.toDate() : undefined,
+        duration: c.duration,
+        frequency: c.frequency
+      })),
+      predictedBirthTime: data.predictedBirthTime ? data.predictedBirthTime.toDate() : undefined
+    };
   }
 
   private generateId(): string {
@@ -297,8 +342,29 @@ export class ContractionService {
     return !lastContraction.endTime ? lastContraction : null;
   }
 
-  deleteSession(sessionId: string): void {
-    const sessions = this.getAllSessions();
+  ngOnDestroy(): void {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+  }
+
+  // ============= CSV Export/Import Methods =============
+  
+  async deleteSession(sessionId: string): Promise<void> {
+    const user = this.authService.getCurrentUser();
+    
+    if (user) {
+      // Delete from Firestore
+      try {
+        const sessionRef = doc(this.firestore, `users/${user.uid}/sessions/${sessionId}`);
+        await deleteDoc(sessionRef);
+      } catch (error) {
+        console.error('Error deleting session from Firestore:', error);
+      }
+    }
+    
+    // Also delete from localStorage
+    const sessions = this.getAllSessionsFromLocalStorage();
     const updatedSessions = sessions.filter(s => s.id !== sessionId);
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedSessions));
     
@@ -309,561 +375,306 @@ export class ContractionService {
     }
   }
 
-  private seedTestDataIfEmpty(): void {
-    // FORCE UPDATE: We now regenerate test data on every load to ensure 
-    // the user sees the latest "Chaotic" algorithm changes.
-    // In a real production app, we would remove this or gate it behind a flag.
-    let sessions = this.getAllSessions();
-    
-    // Remove old test sessions to ensure clean slate for the new algorithm
-    sessions = sessions.filter(s => !s.id.startsWith('test-session-'));
-    
-    console.log('🧪 Regenerating realistic test data with Chaos Mode...');
-    
-    // Create a realistic labor progression session from 8 hours ago
-    const sessionStart = new Date();
-    sessionStart.setHours(sessionStart.getHours() - 8);
-    
-    const testSession: ContractionSession = {
-      id: 'test-session-1',
-      startDate: new Date(new Date().getTime() - 12 * 3600 * 1000), // Started 12 hours ago
-      contractions: this.generateRealisticContractions(new Date()), // End now
-      isActive: false
-    };
-    
-    // Create another session from yesterday
-    const yesterdayEnd = new Date();
-    yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
-    yesterdayEnd.setHours(20, 0, 0, 0);
-    
-    const testSession2: ContractionSession = {
-      id: 'test-session-2',
-      startDate: new Date(yesterdayEnd.getTime() - 8 * 3600 * 1000),
-      contractions: this.generateRealisticContractions(yesterdayEnd),
-      isActive: false
-    };
-    
-    // Add new chaotic sessions
-    sessions.push(testSession, testSession2);
-    
-    // Save updated sessions
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(sessions));
-    console.log('🧪 Chaos data seeded! Total sessions:', sessions.length);
-  }
+  exportSessionAsCSV(session: ContractionSession): string {
+    const headers = ['#', 'Start Time', 'End Time', 'Duration (MM:SS)', 'Frequency (MM:SS)', 'Interval (seconds)'];
+    const rows = [headers.join(',')];
 
-  private generateRealisticContractions(sessionEnd: Date): Contraction[] {
-    const contractions: Contraction[] = [];
-    
-    // We build the session backwards from the end (Pushing -> Transition -> Active -> Latent)
-    // to ensure we fit a realistic timeline ending at "now" (or sessionEnd).
-    
-    let currentTime = new Date(sessionEnd);
-    
-    // --- Phase 4: Second Stage (Pushing) ---
-    // Duration: ~1-2 hours
-    // Freq: 2-5 mins
-    // Length: 60-90s
-    const pushingDurationHours = 1 + Math.random(); // 1-2 hours
-    const pushingEndTime = new Date(currentTime);
-    const pushingStartTime = new Date(currentTime.getTime() - pushingDurationHours * 3600 * 1000);
-    
-    this.generatePhaseContractions(
-      contractions, 
-      pushingStartTime, 
-      pushingEndTime, 
-      { minFreq: 120, maxFreq: 300 }, // 2-5 min
-      { minDur: 60, maxDur: 90 },     // 60-90s
-      0.1 // Low variation
-    );
-    
-    currentTime = pushingStartTime;
-
-    // --- Phase 3: Transition ---
-    // Duration: ~30 min - 1.5 hours (Shortest)
-    // Freq: 2-3 mins
-    // Length: 60-90s (Intense)
-    const transitionDurationHours = 0.5 + Math.random(); // 0.5 - 1.5 hours
-    const transitionStartTime = new Date(currentTime.getTime() - transitionDurationHours * 3600 * 1000);
-    
-    this.generatePhaseContractions(
-      contractions,
-      transitionStartTime,
-      currentTime,
-      { minFreq: 120, maxFreq: 180 }, // 2-3 min
-      { minDur: 60, maxDur: 90 },     // 60-90s
-      0.15 // Low variation
-    );
-
-    currentTime = transitionStartTime;
-
-    // --- Phase 2: Active Labor ---
-    // Duration: 4-8 hours
-    // Freq: 3-5 mins
-    // Length: 45-60s
-    const activeDurationHours = 4 + Math.random() * 4; // 4-8 hours
-    const activeStartTime = new Date(currentTime.getTime() - activeDurationHours * 3600 * 1000);
-    
-    this.generatePhaseContractions(
-      contractions,
-      activeStartTime,
-      currentTime,
-      { minFreq: 180, maxFreq: 300 }, // 3-5 min
-      { minDur: 45, maxDur: 60 },     // 45-60s
-      0.35 // Increased variation (was 0.25)
-    );
-
-    currentTime = activeStartTime;
-
-    // --- Phase 1: Latent (Early) Labor ---
-    // Duration: 6-12 hours (can be days, but we'll cap at ~12h for chart readability)
-    // Freq: 15-30 mins
-    // Length: 30-45s
-    const latentDurationHours = 6 + Math.random() * 6; // 6-12 hours
-    const latentStartTime = new Date(currentTime.getTime() - latentDurationHours * 3600 * 1000);
-    
-    this.generatePhaseContractions(
-      contractions,
-      latentStartTime,
-      currentTime,
-      { minFreq: 900, maxFreq: 1800 }, // 15-30 min
-      { minDur: 30, maxDur: 45 },      // 30-45s
-      0.8, // High variation (was 0.4) - very chaotic
-      true // Enable "Chaos Mode" (long gaps, false starts)
-    );
-
-    // Sort by time as we generated blocks that might be out of order if we just concat
-    // (Though we pushed in reverse time block order, the array needs to be time-ascending for the chart)
-    return contractions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime())
-                       .map((c, i) => ({ ...c, id: `contraction-${i + 1}` }));
-  }
-
-  private generatePhaseContractions(
-    allContractions: Contraction[],
-    phaseStart: Date,
-    phaseEnd: Date,
-    freqRange: { minFreq: number, maxFreq: number },
-    durRange: { minDur: number, maxDur: number },
-    variation: number,
-    chaosMode: boolean = false
-  ) {
-    let timeCursor = new Date(phaseStart);
-    
-    while (timeCursor < phaseEnd) {
-      // Interpolate progress within the phase (0 to 1)
-      const progress = (timeCursor.getTime() - phaseStart.getTime()) / (phaseEnd.getTime() - phaseStart.getTime());
-      
-      // Linearly interpolate base parameters based on progress through the phase
-      // e.g., Frequency gets tighter, Duration gets longer
-      const currentBaseFreq = freqRange.maxFreq - (progress * (freqRange.maxFreq - freqRange.minFreq));
-      const currentBaseDur = durRange.minDur + (progress * (durRange.maxDur - durRange.minDur));
-
-      // Apply Randomness
-      // In chaos mode (early labor), variation is much wilder
-      const chaosMultiplier = chaosMode ? (1 + Math.random()) : 1; 
-      
-      const freqNoise = (Math.random() - 0.5) * 2 * variation * currentBaseFreq * chaosMultiplier;
-      const durNoise = (Math.random() - 0.5) * 2 * variation * currentBaseDur;
-      
-      let frequency = Math.max(60, currentBaseFreq + freqNoise);
-      let duration = Math.max(15, currentBaseDur + durNoise);
-      
-      // Chaos Mode: Occasional "false starts" (short duration) or "long breaks" (long frequency)
-      if (chaosMode) {
-        if (Math.random() < 0.2) {
-            // 20% chance of a "break" - frequency doubles or triples
-            frequency *= (1.5 + Math.random() * 1.5);
-        }
-        if (Math.random() < 0.15) {
-            // 15% chance of a "weak one" - duration drops significantly
-            duration *= 0.6;
-        }
-      }
-
-      // Start time of contraction
-      const startTime = new Date(timeCursor);
-      const endTime = new Date(startTime.getTime() + duration * 1000);
-      
-      allContractions.push({
-        id: 'temp', // will replace later
-        startTime: startTime,
-        endTime: endTime,
-        duration: Math.floor(duration),
-        frequency: Math.floor(frequency)
-      });
-      
-      // Advance time by frequency (interval + duration usually, but here freq is start-to-start)
-      timeCursor = new Date(timeCursor.getTime() + frequency * 1000);
-    }
-  }
-
-   /**
-    * Export a session as CSV format
-    * Format: Time (HH:mm:ss), Duration (MM:SS), Frequency (min:sec), Notes
-    */
-   exportSessionAsCSV(session: ContractionSession): string {
-     const headers = ['#', 'Start Time', 'End Time', 'Duration (MM:SS)', 'Frequency (MM:SS)', 'Interval (seconds)'];
-     const rows = [headers];
-
-     session.contractions.forEach((c, index) => {
-       const startTime = c.startTime.toLocaleTimeString('en-US', {
-         hour: '2-digit',
-         minute: '2-digit',
-         second: '2-digit',
-         hour12: false
-       });
-
-       const endTime = c.endTime?.toLocaleTimeString('en-US', {
-         hour: '2-digit',
-         minute: '2-digit',
-         second: '2-digit',
-         hour12: false
-       }) || '—';
-
-       // Format duration as MM:SS
-       const durationMins = Math.floor(c.duration! / 60);
-       const durationSecs = c.duration! % 60;
-       const durationFormatted = `${durationMins}:${durationSecs.toString().padStart(2, '0')}`;
-
-       // Format frequency as MM:SS
-       const frequencyFormatted = c.frequency 
-         ? (() => {
-             const freqMins = Math.floor(c.frequency! / 60);
-             const freqSecs = c.frequency! % 60;
-             return `${freqMins}:${freqSecs.toString().padStart(2, '0')}`;
-           })()
-         : '—';
-
-       rows.push([
-         (index + 1).toString(),
-         startTime,
-         endTime,
-         durationFormatted,
-         frequencyFormatted,
-         c.frequency?.toString() || '—'
-       ]);
-     });
-
-     // Add summary section
-     const prediction = this.getPrediction();
-     if (prediction) {
-       rows.push([]);
-       rows.push(['PREDICTION SUMMARY']);
-       rows.push(['Estimated Delivery Time', prediction.estimatedTime.toLocaleString()]);
-       rows.push(['Confidence Level', prediction.confidence.toUpperCase()]);
-       rows.push(['Average Duration', `${Math.floor(prediction.avgDuration / 60)}:${(prediction.avgDuration % 60).toString().padStart(2, '0')}`]);
-       rows.push(['Average Frequency', prediction.avgFrequency.toFixed(1) + ' minutes']);
-       rows.push(['Trend', prediction.trend.toUpperCase()]);
-       rows.push(['Details', prediction.reasoning]);
-     }
-
-     // Convert to CSV
-     return rows.map(row => 
-       row.map(cell => {
-         // Escape quotes and wrap in quotes if contains comma
-         const escaped = String(cell).replace(/"/g, '""');
-         return escaped.includes(',') || escaped.includes('"') ? `"${escaped}"` : escaped;
-       }).join(',')
-     ).join('\n');
-   }
-
-   /**
-    * Trigger download of CSV file
-    */
-   downloadSessionCSV(session: ContractionSession): void {
-     const csv = this.exportSessionAsCSV(session);
-     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-     const link = document.createElement('a');
-     const url = URL.createObjectURL(blob);
-
-     const dateStr = session.startDate.toLocaleDateString('en-US', {
-       year: 'numeric',
-       month: '2-digit',
-       day: '2-digit',
-       hour: '2-digit',
-       minute: '2-digit'
-     }).replace(/[/:]/g, '-');
-
-     link.setAttribute('href', url);
-     link.setAttribute('download', `contractions-${dateStr}.csv`);
-     link.style.visibility = 'hidden';
-
-     document.body.appendChild(link);
-     link.click();
-      document.body.removeChild(link);
-    }
-
-    /**
-     * Export session(s) as JSON for backup/data analysis
-     */
-    exportSessionsAsJSON(sessions: ContractionSession[]): string {
-      const data = {
-        exportDate: new Date().toISOString(),
-        appVersion: '1.0.0',
-        sessions: sessions.map(session => ({
-          id: session.id,
-          startDate: session.startDate.toISOString(),
-          isActive: session.isActive,
-          contractions: session.contractions.map(c => ({
-            id: c.id,
-            startTime: c.startTime.toISOString(),
-            endTime: c.endTime?.toISOString() || null,
-            duration: c.duration || null,
-            frequency: c.frequency || null
-          }))
-        }))
-      };
-      return JSON.stringify(data, null, 2);
-    }
-
-    /**
-     * Download session(s) as JSON file for backup
-     */
-    downloadSessionsJSON(sessions: ContractionSession[]): void {
-      const json = this.exportSessionsAsJSON(sessions);
-      const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-
-      const dateStr = new Date().toLocaleDateString('en-US', {
+    session.contractions.forEach((contraction, index) => {
+      const startTime = contraction.startTime.toLocaleString('en-US', {
         year: 'numeric',
         month: '2-digit',
-        day: '2-digit'
-      }).replace(/\//g, '-');
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
 
-      link.setAttribute('href', url);
-      link.setAttribute('download', `contractions-backup-${dateStr}.json`);
-      link.style.visibility = 'hidden';
+      const endTime = contraction.endTime
+        ? contraction.endTime.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          })
+        : 'N/A';
 
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const duration = contraction.duration
+        ? `${Math.floor(contraction.duration / 60)}:${(contraction.duration % 60).toString().padStart(2, '0')}`
+        : 'N/A';
+
+      const frequency = contraction.frequency
+        ? `${Math.floor(contraction.frequency / 60)}:${(contraction.frequency % 60).toString().padStart(2, '0')}`
+        : 'N/A';
+
+      const interval = contraction.frequency || 'N/A';
+
+      rows.push([index + 1, startTime, endTime, duration, frequency, interval].join(','));
+    });
+
+    // Add prediction summary if available
+    const prediction = this.getPrediction();
+    if (prediction) {
+      rows.push('');
+      rows.push('Prediction Summary');
+      rows.push(`Estimated Birth Time,${prediction.estimatedTime.toLocaleString()}`);
+      rows.push(`Confidence,${prediction.confidence}`);
+      rows.push(`Average Frequency,${prediction.avgFrequency.toFixed(2)} minutes`);
+      rows.push(`Average Duration,${prediction.avgDuration} seconds`);
+      rows.push(`Trend,${prediction.trend}`);
+      rows.push(`Reasoning,"${prediction.reasoning}"`);
     }
 
-    /**
-     * Import sessions from JSON backup file
-     */
-    importSessionsFromJSON(jsonData: string): ContractionSession[] {
-      try {
-        const data = JSON.parse(jsonData);
-        
-        if (!data.sessions || !Array.isArray(data.sessions)) {
-          throw new Error('Invalid JSON format: missing sessions array');
-        }
+    return rows.join('\n');
+  }
 
-        const imported: ContractionSession[] = data.sessions.map((s: any) => ({
-          id: s.id,
-          startDate: new Date(s.startDate),
-          isActive: s.isActive,
-          contractions: s.contractions.map((c: any) => ({
-            id: c.id,
-            startTime: new Date(c.startTime),
-            endTime: c.endTime ? new Date(c.endTime) : undefined,
-            duration: c.duration,
-            frequency: c.frequency
-          }))
-        }));
+  downloadSessionCSV(session: ContractionSession): void {
+    const csv = this.exportSessionAsCSV(session);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
 
-        // Merge with existing sessions
-        const existing = this.getAllSessions();
-        const merged = [...existing, ...imported];
-        
-        // Store merged sessions
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(merged));
-        
-        return imported;
-      } catch (error: any) {
-        console.error('Error importing sessions:', error);
-        throw new Error(`Failed to import JSON: ${error.message}`);
+    const dateStr = session.startDate.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).replace(/[/:]/g, '-');
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `contractions-${dateStr}.csv`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  exportSessionsAsJSON(sessions: ContractionSession[]): string {
+    const data = {
+      exportDate: new Date().toISOString(),
+      appVersion: '1.0.0',
+      sessions: sessions.map(session => ({
+        id: session.id,
+        startDate: session.startDate.toISOString(),
+        isActive: session.isActive,
+        contractions: session.contractions.map(c => ({
+          id: c.id,
+          startTime: c.startTime.toISOString(),
+          endTime: c.endTime?.toISOString() || null,
+          duration: c.duration || null,
+          frequency: c.frequency || null
+        }))
+      }))
+    };
+    return JSON.stringify(data, null, 2);
+  }
+
+  downloadSessionsJSON(sessions: ContractionSession[]): void {
+    const json = this.exportSessionsAsJSON(sessions);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    const dateStr = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-');
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `contractions-backup-${dateStr}.json`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  async importSessionsFromJSON(jsonData: string): Promise<ContractionSession[]> {
+    try {
+      const data = JSON.parse(jsonData);
+      
+      if (!data.sessions || !Array.isArray(data.sessions)) {
+        throw new Error('Invalid JSON format: missing sessions array');
       }
+
+      const imported: ContractionSession[] = data.sessions.map((s: any) => ({
+        id: s.id,
+        startDate: new Date(s.startDate),
+        isActive: s.isActive,
+        contractions: s.contractions.map((c: any) => ({
+          id: c.id,
+          startTime: new Date(c.startTime),
+          endTime: c.endTime ? new Date(c.endTime) : undefined,
+          duration: c.duration,
+          frequency: c.frequency
+        }))
+      }));
+
+      const user = this.authService.getCurrentUser();
+      
+      // Save to Firestore if authenticated
+      if (user) {
+        for (const session of imported) {
+          await this.saveSession(session);
+        }
+      }
+
+      // Also save to localStorage
+      const existing = this.getAllSessionsFromLocalStorage();
+      const merged = [...existing, ...imported];
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(merged));
+      
+      return imported;
+    } catch (error: any) {
+      console.error('Error importing sessions:', error);
+      throw new Error(`Failed to import JSON: ${error.message}`);
+    }
+  }
+
+  importContractionsFromCSV(csvData: string): number {
+    const session = this.currentSessionSubject.value;
+    if (!session) {
+      throw new Error('No active session. Please start a session first.');
     }
 
-    /**
-     * Import contractions from CSV to the current active session
-     * CSV format: #, Start Time, End Time, Duration (MM:SS), Frequency (MM:SS), Interval (seconds)
-     */
-    importContractionsFromCSV(csvData: string): number {
-      const session = this.currentSessionSubject.value;
-      if (!session) {
-        throw new Error('No active session. Please start a session first.');
+    try {
+      const lines = csvData.trim().split('\n');
+      
+      if (lines.length < 2) {
+        throw new Error('CSV file is empty or invalid');
       }
 
-      try {
-        const lines = csvData.trim().split('\n');
+      // Skip header row
+      const dataLines = lines.slice(1);
+      let importedCount = 0;
+
+      for (const line of dataLines) {
+        if (!line.trim()) continue;
+
+        // Parse CSV line (handle quoted fields)
+        const fields = this.parseCSVLine(line);
         
-        if (lines.length < 2) {
-          throw new Error('CSV file is empty or invalid');
+        if (fields.length < 6) {
+          console.warn('Skipping invalid line:', line);
+          continue;
         }
 
-        // Skip header row
-        const dataLines = lines.slice(1);
-        let importedCount = 0;
+        try {
+          const startTimeStr = fields[1].trim();
+          const endTimeStr = fields[2].trim();
+          const durationStr = fields[3].trim();
 
-        for (const line of dataLines) {
-          if (!line.trim()) continue;
-
-          // Parse CSV line (handle quoted fields)
-          const fields = this.parseCSVLine(line);
-          
-          if (fields.length < 6) {
-            console.warn('Skipping invalid line:', line);
+          // Parse start time
+          const startTime = this.parseTimeString(startTimeStr);
+          if (!startTime) {
+            console.warn('Invalid start time:', startTimeStr);
             continue;
           }
 
-          try {
-            const startTimeStr = fields[1].trim();
-            const endTimeStr = fields[2].trim();
-            const durationStr = fields[3].trim();
-            const frequencyStr = fields[4].trim();
-
-            // Parse start time
-            const startTime = this.parseTimeString(startTimeStr);
-            if (!startTime) {
-              console.warn('Invalid start time:', startTimeStr);
-              continue;
+          // Parse end time
+          let endTime: Date | undefined;
+          let duration: number | undefined;
+          
+          if (endTimeStr && endTimeStr !== 'N/A') {
+            const parsedEndTime = this.parseTimeString(endTimeStr);
+            if (parsedEndTime && startTime) {
+              endTime = parsedEndTime;
+              duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
             }
-
-            // Parse end time (if available)
-            let endTime: Date | undefined;
-            if (endTimeStr && endTimeStr !== '—' && endTimeStr !== '-') {
-              const parsedEndTime = this.parseTimeString(endTimeStr);
-              if (parsedEndTime) {
-                endTime = parsedEndTime;
-              }
+          } else if (durationStr && durationStr !== 'N/A') {
+            // Parse MM:SS duration
+            const [mins, secs] = durationStr.split(':').map(Number);
+            if (!isNaN(mins) && !isNaN(secs)) {
+              duration = mins * 60 + secs;
+              endTime = new Date(startTime.getTime() + duration * 1000);
             }
-
-            // Parse duration (MM:SS format)
-            let duration: number | undefined;
-            if (durationStr && durationStr !== '—' && durationStr !== '-') {
-              const durationMatch = durationStr.match(/(\d+):(\d+)/);
-              if (durationMatch) {
-                const mins = parseInt(durationMatch[1], 10);
-                const secs = parseInt(durationMatch[2], 10);
-                duration = mins * 60 + secs;
-              }
-            }
-
-            // Parse frequency (MM:SS format or seconds)
-            let frequency: number | undefined;
-            if (frequencyStr && frequencyStr !== '—' && frequencyStr !== '-') {
-              const freqMatch = frequencyStr.match(/(\d+):(\d+)/);
-              if (freqMatch) {
-                const mins = parseInt(freqMatch[1], 10);
-                const secs = parseInt(freqMatch[2], 10);
-                frequency = mins * 60 + secs;
-              } else {
-                // Try parsing as plain number
-                const freqNum = parseFloat(frequencyStr);
-                if (!isNaN(freqNum)) {
-                  frequency = Math.floor(freqNum);
-                }
-              }
-            }
-
-            // Create contraction
-            const contraction: Contraction = {
-              id: this.generateId(),
-              startTime,
-              endTime,
-              duration,
-              frequency
-            };
-
-            session.contractions.push(contraction);
-            importedCount++;
-          } catch (err) {
-            console.warn('Error parsing contraction line:', line, err);
           }
-        }
 
-        if (importedCount === 0) {
-          throw new Error('No valid contractions found in CSV file');
-        }
+          const contraction: Contraction = {
+            id: this.generateId(),
+            startTime,
+            endTime,
+            duration
+          };
 
-        // Sort contractions by start time
-        session.contractions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-
-        // Recalculate frequencies for all contractions
-        for (let i = 1; i < session.contractions.length; i++) {
-          const current = session.contractions[i];
-          const previous = session.contractions[i - 1];
-          if (previous.endTime) {
-            current.frequency = Math.floor(
-              (current.startTime.getTime() - previous.endTime.getTime()) / 1000
-            );
-          }
-        }
-
-        // Update and save session
-        this.currentSessionSubject.next(session);
-        this.saveSession(session);
-
-        return importedCount;
-      } catch (error: any) {
-        console.error('Error importing CSV:', error);
-        throw new Error(`Failed to import CSV: ${error.message}`);
-      }
-    }
-
-    /**
-     * Parse a CSV line handling quoted fields
-     */
-    private parseCSVLine(line: string): string[] {
-      const fields: string[] = [];
-      let currentField = '';
-      let inQuotes = false;
-
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        const nextChar = line[i + 1];
-
-        if (char === '"' && nextChar === '"') {
-          // Escaped quote
-          currentField += '"';
-          i++; // Skip next quote
-        } else if (char === '"') {
-          // Toggle quote state
-          inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-          // Field separator
-          fields.push(currentField);
-          currentField = '';
-        } else {
-          currentField += char;
+          session.contractions.push(contraction);
+          importedCount++;
+        } catch (error) {
+          console.warn('Error parsing contraction line:', line, error);
+          continue;
         }
       }
 
-      // Add last field
-      fields.push(currentField);
+      // Recalculate frequencies
+      for (let i = 1; i < session.contractions.length; i++) {
+        const current = session.contractions[i];
+        const previous = session.contractions[i - 1];
+        if (previous.endTime) {
+          current.frequency = Math.floor(
+            (current.startTime.getTime() - previous.endTime.getTime()) / 1000
+          );
+        }
+      }
 
-      return fields;
+      // Sort by start time
+      session.contractions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+      this.currentSessionSubject.next(session);
+      this.saveSession(session);
+
+      return importedCount;
+    } catch (error: any) {
+      console.error('Error importing CSV:', error);
+      throw new Error(`Failed to import CSV: ${error.message}`);
     }
+  }
 
-    /**
-     * Parse time string in various formats (HH:MM:SS, HH:MM:SS AM/PM, etc.)
-     */
-    private parseTimeString(timeStr: string): Date | null {
-      try {
-        // Try parsing as full ISO date first
-        const isoDate = new Date(timeStr);
-        if (!isNaN(isoDate.getTime())) {
-          return isoDate;
-        }
+  private parseCSVLine(line: string): string[] {
+    const fields: string[] = [];
+    let current = '';
+    let inQuotes = false;
 
-        // Parse time-only format (HH:MM:SS)
-        const timeMatch = timeStr.match(/(\d{1,2}):(\d{2}):(\d{2})/);
-        if (timeMatch) {
-          const hours = parseInt(timeMatch[1], 10);
-          const minutes = parseInt(timeMatch[2], 10);
-          const seconds = parseInt(timeMatch[3], 10);
-
-          const date = new Date();
-          date.setHours(hours, minutes, seconds, 0);
-          return date;
-        }
-
-        return null;
-      } catch {
-        return null;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        fields.push(current);
+        current = '';
+      } else {
+        current += char;
       }
     }
+    
+    fields.push(current);
+    return fields;
+  }
+
+  private parseTimeString(timeStr: string): Date | null {
+    try {
+      // Try parsing as ISO date
+      const date = new Date(timeStr);
+      if (!isNaN(date.getTime())) {
+        return date;
+      }
+
+      // Try parsing MM/DD/YYYY, HH:MM:SS format
+      const match = timeStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{1,2}):(\d{1,2})/);
+      if (match) {
+        const [, month, day, year, hour, minute, second] = match;
+        return new Date(+year, +month - 1, +day, +hour, +minute, +second);
+      }
+
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
 }

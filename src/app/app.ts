@@ -110,9 +110,11 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  loadAllSessions(): void {
-    this.allSessions = this.contractionService.getAllSessions()
-      .sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+  async loadAllSessions(): Promise<void> {
+    const sessions = await this.contractionService.getAllSessions();
+    this.allSessions = sessions.sort((a: ContractionSession, b: ContractionSession) => 
+      b.startDate.getTime() - a.startDate.getTime()
+    );
     console.log('🔧 Loaded sessions:', this.allSessions.length);
     console.log('🔧 Session history (inactive):', this.sessionHistory.length);
   }
@@ -133,8 +135,8 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  startSession(): void {
-    this.contractionService.startNewSession();
+  async startSession(): Promise<void> {
+    await this.contractionService.startNewSession();
     this.activeTab = 'current';
   }
 
@@ -158,10 +160,10 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  deleteSession(sessionId: string): void {
+  async deleteSession(sessionId: string): Promise<void> {
     if (confirm('Are you sure you want to delete this session? This action cannot be undone.')) {
-      this.contractionService.deleteSession(sessionId);
-      this.loadAllSessions();
+      await this.contractionService.deleteSession(sessionId);
+      await this.loadAllSessions();
     }
   }
 
@@ -260,8 +262,8 @@ export class App implements OnInit, OnDestroy {
     this.contractionService.downloadSessionCSV(session);
   }
 
-  backupAllSessions(): void {
-    const allSessions = this.contractionService.getAllSessions();
+  async backupAllSessions(): Promise<void> {
+    const allSessions = await this.contractionService.getAllSessions();
     if (allSessions.length > 0) {
       this.contractionService.downloadSessionsJSON(allSessions);
     }
@@ -276,12 +278,12 @@ export class App implements OnInit, OnDestroy {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const jsonData = e.target?.result as string;
-        const imported = this.contractionService.importSessionsFromJSON(jsonData);
+        const imported = await this.contractionService.importSessionsFromJSON(jsonData);
         alert(`Successfully imported ${imported.length} session(s)`);
-        this.loadAllSessions();
+        await this.loadAllSessions();
       } catch (error: any) {
         alert(`Error importing file: ${error.message}`);
       }
