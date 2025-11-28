@@ -676,4 +676,194 @@ export class ContractionService {
         throw new Error(`Failed to import JSON: ${error.message}`);
       }
     }
+
+    /**
+     * Import contractions from CSV to the current active session
+     * CSV format: #, Start Time, End Time, Duration (MM:SS), Frequency (MM:SS), Interval (seconds)
+     */
+    importContractionsFromCSV(csvData: string): number {
+      const session = this.currentSessionSubject.value;
+      if (!session) {
+        throw new Error('No active session. Please start a session first.');
+      }
+
+      try {
+        const lines = csvData.trim().split('\n');
+        
+        if (lines.length < 2) {
+          throw new Error('CSV file is empty or invalid');
+        }
+
+        // Skip header row
+        const dataLines = lines.slice(1);
+        let importedCount = 0;
+
+        for (const line of dataLines) {
+          if (!line.trim()) continue;
+
+          // Parse CSV line (handle quoted fields)
+          const fields = this.parseCSVLine(line);
+          
+          if (fields.length < 6) {
+            console.warn('Skipping invalid line:', line);
+            continue;
+          }
+
+          try {
+            const startTimeStr = fields[1].trim();
+            const endTimeStr = fields[2].trim();
+            const durationStr = fields[3].trim();
+            const frequencyStr = fields[4].trim();
+
+            // Parse start time
+            const startTime = this.parseTimeString(startTimeStr);
+            if (!startTime) {
+              console.warn('Invalid start time:', startTimeStr);
+              continue;
+            }
+
+            // Parse end time (if available)
+            let endTime: Date | undefined;
+            if (endTimeStr && endTimeStr !== '—' && endTimeStr !== '-') {
+              const parsedEndTime = this.parseTimeString(endTimeStr);
+              if (parsedEndTime) {
+                endTime = parsedEndTime;
+              }
+            }
+
+            // Parse duration (MM:SS format)
+            let duration: number | undefined;
+            if (durationStr && durationStr !== '—' && durationStr !== '-') {
+              const durationMatch = durationStr.match(/(\d+):(\d+)/);
+              if (durationMatch) {
+                const mins = parseInt(durationMatch[1], 10);
+                const secs = parseInt(durationMatch[2], 10);
+                duration = mins * 60 + secs;
+              }
+            }
+
+            // Parse frequency (MM:SS format or seconds)
+            let frequency: number | undefined;
+            if (frequencyStr && frequencyStr !== '—' && frequencyStr !== '-') {
+              const freqMatch = frequencyStr.match(/(\d+):(\d+)/);
+              if (freqMatch) {
+                const mins = parseInt(freqMatch[1], 10);
+                const secs = parseInt(freqMatch[2], 10);
+                frequency = mins * 60 + secs;
+              } else {
+                // Try parsing as plain number
+                const freqNum = parseFloat(frequencyStr);
+                if (!isNaN(freqNum)) {
+                  frequency = Math.floor(freqNum);
+                }
+              }
+            }
+
+            // Create contraction
+            const contraction: Contraction = {
+              id: this.generateId(),
+              startTime,
+              endTime,
+              duration,
+              frequency
+            };
+
+            session.contractions.push(contraction);
+            importedCount++;
+          } catch (err) {
+            console.warn('Error parsing contraction line:', line, err);
+          }
+        }
+
+        if (importedCount === 0) {
+          throw new Error('No valid contractions found in CSV file');
+        }
+
+        // Sort contractions by start time
+        session.contractions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+        // Recalculate frequencies for all contractions
+        for (let i = 1; i < session.contractions.length; i++) {
+          const current = session.contractions[i];
+          const previous = session.contractions[i - 1];
+          if (previous.endTime) {
+            current.frequency = Math.floor(
+              (current.startTime.getTime() - previous.endTime.getTime()) / 1000
+            );
+          }
+        }
+
+        // Update and save session
+        this.currentSessionSubject.next(session);
+        this.saveSession(session);
+
+        return importedCount;
+      } catch (error: any) {
+        console.error('Error importing CSV:', error);
+        throw new Error(`Failed to import CSV: ${error.message}`);
+      }
+    }
+
+    /**
+     * Parse a CSV line handling quoted fields
+     */
+    private parseCSVLine(line: string): string[] {
+      const fields: string[] = [];
+      let currentField = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+
+        if (char === '"' && nextChar === '"') {
+          // Escaped quote
+          currentField += '"';
+          i++; // Skip next quote
+        } else if (char === '"') {
+          // Toggle quote state
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          // Field separator
+          fields.push(currentField);
+          currentField = '';
+        } else {
+          currentField += char;
+        }
+      }
+
+      // Add last field
+      fields.push(currentField);
+
+      return fields;
+    }
+
+    /**
+     * Parse time string in various formats (HH:MM:SS, HH:MM:SS AM/PM, etc.)
+     */
+    private parseTimeString(timeStr: string): Date | null {
+      try {
+        // Try parsing as full ISO date first
+        const isoDate = new Date(timeStr);
+        if (!isNaN(isoDate.getTime())) {
+          return isoDate;
+        }
+
+        // Parse time-only format (HH:MM:SS)
+        const timeMatch = timeStr.match(/(\d{1,2}):(\d{2}):(\d{2})/);
+        if (timeMatch) {
+          const hours = parseInt(timeMatch[1], 10);
+          const minutes = parseInt(timeMatch[2], 10);
+          const seconds = parseInt(timeMatch[3], 10);
+
+          const date = new Date();
+          date.setHours(hours, minutes, seconds, 0);
+          return date;
+        }
+
+        return null;
+      } catch {
+        return null;
+      }
+    }
 }

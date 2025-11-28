@@ -271,5 +271,55 @@ describe('ContractionService', () => {
       expect(restoredSession?.contractions[0].endTime).toBeInstanceOf(Date);
     });
   });
+
+  describe('CSV Import', () => {
+    it('should import contractions from CSV', () => {
+      const session = service.startNewSession();
+      
+      const csvData = `#,Start Time,End Time,Duration (MM:SS),Frequency (MM:SS),Interval (seconds)
+1,14:30:00,14:31:15,1:15,—,—
+2,14:35:00,14:36:30,1:30,3:45,225
+3,14:39:00,14:40:20,1:20,2:30,150`;
+
+      const importedCount = service.importContractionsFromCSV(csvData);
+      
+      expect(importedCount).toBe(3);
+      expect(session.contractions.length).toBe(3);
+      expect(session.contractions[0].duration).toBe(75); // 1:15 = 75 seconds
+      expect(session.contractions[1].duration).toBe(90); // 1:30 = 90 seconds
+      expect(session.contractions[2].duration).toBe(80); // 1:20 = 80 seconds
+    });
+
+    it('should throw error when no active session', () => {
+      const csvData = `#,Start Time,End Time,Duration (MM:SS),Frequency (MM:SS),Interval (seconds)
+1,14:30:00,14:31:15,1:15,—,—`;
+
+      expect(() => {
+        service.importContractionsFromCSV(csvData);
+      }).toThrow('No active session');
+    });
+
+    it('should recalculate frequencies after import', () => {
+      const session = service.startNewSession();
+      
+      const csvData = `#,Start Time,End Time,Duration (MM:SS),Frequency (MM:SS),Interval (seconds)
+1,14:30:00,14:31:15,1:15,—,—
+2,14:35:00,14:36:30,1:30,3:45,225`;
+
+      service.importContractionsFromCSV(csvData);
+      
+      // Frequency should be recalculated based on time difference
+      expect(session.contractions[1].frequency).toBeDefined();
+    });
+
+    it('should handle empty CSV', () => {
+      service.startNewSession();
+      const csvData = '#,Start Time,End Time,Duration (MM:SS),Frequency (MM:SS),Interval (seconds)';
+
+      expect(() => {
+        service.importContractionsFromCSV(csvData);
+      }).toThrow('No valid contractions found');
+    });
+  });
 });
 

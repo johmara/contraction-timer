@@ -30,6 +30,7 @@ export class App implements OnInit, OnDestroy {
   private subscriptions = new Subscription();
   
   @ViewChild('restoreFileInput') restoreFileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('importCSVFileInput') importCSVFileInput!: ElementRef<HTMLInputElement>;
 
   constructor(
     public contractionService: ContractionService,
@@ -248,6 +249,36 @@ export class App implements OnInit, OnDestroy {
         this.loadAllSessions();
       } catch (error: any) {
         alert(`Error importing file: ${error.message}`);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  triggerImportCSVInput(): void {
+    this.importCSVFileInput.nativeElement.click();
+  }
+
+  importCSVFile(event: any): void {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!this.currentSession) {
+      alert('Please start a session first before importing contractions.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const csvData = e.target?.result as string;
+        const importedCount = this.contractionService.importContractionsFromCSV(csvData);
+        alert(`Successfully imported ${importedCount} contraction(s)`);
+        this.updatePrediction();
+      } catch (error: any) {
+        alert(`Error importing CSV: ${error.message}`);
+      } finally {
+        // Reset file input so the same file can be imported again if needed
+        this.importCSVFileInput.nativeElement.value = '';
       }
     };
     reader.readAsText(file);
