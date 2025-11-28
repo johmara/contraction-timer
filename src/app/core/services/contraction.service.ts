@@ -577,52 +577,65 @@ export class ContractionService {
             continue;
           }
 
-          // Parse end time
+          // Parse end time (if available)
           let endTime: Date | undefined;
-          let duration: number | undefined;
-          
-          if (endTimeStr && endTimeStr !== 'N/A') {
+          if (endTimeStr && endTimeStr !== '—' && endTimeStr !== '-' && endTimeStr !== 'N/A') {
             const parsedEndTime = this.parseTimeString(endTimeStr);
-            if (parsedEndTime && startTime) {
+            if (parsedEndTime) {
               endTime = parsedEndTime;
-              duration = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
-            }
-          } else if (durationStr && durationStr !== 'N/A') {
-            // Parse MM:SS duration
-            const [mins, secs] = durationStr.split(':').map(Number);
-            if (!isNaN(mins) && !isNaN(secs)) {
-              duration = mins * 60 + secs;
-              endTime = new Date(startTime.getTime() + duration * 1000);
             }
           }
 
+          // Parse duration (MM:SS format)
+          let duration: number | undefined;
+          if (durationStr && durationStr !== '—' && durationStr !== '-' && durationStr !== 'N/A') {
+            const durationMatch = durationStr.match(/(\d+):(\d+)/);
+            if (durationMatch) {
+              const mins = parseInt(durationMatch[1], 10);
+              const secs = parseInt(durationMatch[2], 10);
+              duration = mins * 60 + secs;
+            }
+          }
+
+          // Parse frequency (MM:SS format or seconds)
+          const frequencyStr = fields[4].trim();
+          let frequency: number | undefined;
+          if (frequencyStr && frequencyStr !== '—' && frequencyStr !== '-' && frequencyStr !== 'N/A') {
+            const freqMatch = frequencyStr.match(/(\d+):(\d+)/);
+            if (freqMatch) {
+              const mins = parseInt(freqMatch[1], 10);
+              const secs = parseInt(freqMatch[2], 10);
+              frequency = mins * 60 + secs;
+            } else {
+              // Try parsing as plain number
+              const freqNum = parseFloat(frequencyStr);
+              if (!isNaN(freqNum)) {
+                frequency = Math.floor(freqNum);
+              }
+            }
+          }
+
+          // Create contraction
           const contraction: Contraction = {
             id: this.generateId(),
             startTime,
             endTime,
-            duration
+            duration,
+            frequency
           };
 
           session.contractions.push(contraction);
           importedCount++;
-        } catch (error) {
-          console.warn('Error parsing contraction line:', line, error);
-          continue;
+        } catch (err) {
+          console.warn('Error parsing contraction line:', line, err);
         }
       }
 
-      // Recalculate frequencies
-      for (let i = 1; i < session.contractions.length; i++) {
-        const current = session.contractions[i];
-        const previous = session.contractions[i - 1];
-        if (previous.endTime) {
-          current.frequency = Math.floor(
-            (current.startTime.getTime() - previous.endTime.getTime()) / 1000
-          );
-        }
+      if (importedCount === 0) {
+        throw new Error('No valid contractions found in CSV file');
       }
 
-      // Sort by start time
+      // Sort contractions by start time
       session.contractions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
 
       this.currentSessionSubject.next(session);
