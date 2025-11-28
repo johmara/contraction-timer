@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Icon Generator - Contraction Timer</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f0e8;
+    }
+    h1 { color: #4A3F5C; }
+    .icons-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin: 30px 0;
+    }
+    .icon-card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      max-width: 100%;
+    }
+    button {
+      background: #4A3F5C;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #6B5B7D;
+    }
+    .instructions {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚼 Contraction Timer - Icon Generator</h1>
+  <p>Generate PWA icons and favicon for the Contraction Timer app</p>
+
+  <div class="icons-grid">
+    <div class="icon-card">
+      <h3>Favicon (32x32)</h3>
+      <canvas id="favicon" width="32" height="32"></canvas>
+      <button onclick="downloadIcon('favicon', 'favicon')">Download ICO</button>
+    </div>
+
+    <div class="icon-card">
+      <h3>Icon 192x192</h3>
+      <canvas id="icon192" width="192" height="192"></canvas>
+      <button onclick="downloadIcon('icon192', 'icon-192')">Download PNG</button>
+    </div>
+
+    <div class="icon-card">
+      <h3>Icon 192 Maskable</h3>
+      <canvas id="icon192maskable" width="192" height="192"></canvas>
+      <button onclick="downloadIcon('icon192maskable', 'icon-192-maskable')">Download PNG</button>
+    </div>
+
+    <div class="icon-card">
+      <h3>Icon 512x512</h3>
+      <canvas id="icon512" width="512" height="512"></canvas>
+      <button onclick="downloadIcon('icon512', 'icon-512')">Download PNG</button>
+    </div>
+
+    <div class="icon-card">
+      <h3>Icon 512 Maskable</h3>
+      <canvas id="icon512maskable" width="512" height="512"></canvas>
+      <button onclick="downloadIcon('icon512maskable', 'icon-512-maskable')">Download PNG</button>
+    </div>
+  </div>
+
+  <div class="instructions">
+    <h2>📋 Instructions</h2>
+    <ol>
+      <li>Click each "Download" button to save the icons</li>
+      <li>Replace the files in the <code>public/</code> folder</li>
+      <li>For favicon.ico: Use an online converter to convert the PNG to ICO format, or use the PNG directly</li>
+      <li>Build and deploy the app</li>
+    </ol>
+  </div>
+
+  <script>
+    // Draw icon with optional padding for maskable icons
+    function drawIcon(canvas, padding = 0) {
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+      const center = size / 2;
+      const scale = (size - padding * 2) / 512;
+
+      ctx.clearRect(0, 0, size, size);
+      ctx.save();
+      ctx.translate(padding, padding);
+      ctx.scale(scale, scale);
+
+      // Background gradient circle
+      const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+      gradient.addColorStop(0, '#4A3F5C');
+      gradient.addColorStop(1, '#6B5B7D');
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(256, 256, 240, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Clock face
+      ctx.fillStyle = '#E8DCC8';
+      ctx.strokeStyle = '#F5F0E8';
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.arc(256, 256, 180, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Heartbeat wave
+      ctx.strokeStyle = '#FF5722';
+      ctx.lineWidth = 12;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      ctx.beginPath();
+      ctx.moveTo(120, 256);
+      ctx.lineTo(180, 256);
+      ctx.lineTo(200, 200);
+      ctx.lineTo(220, 320);
+      ctx.lineTo(240, 256);
+      ctx.lineTo(280, 256);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(280, 256);
+      ctx.lineTo(320, 256);
+      ctx.lineTo(340, 200);
+      ctx.lineTo(360, 320);
+      ctx.lineTo(380, 256);
+      ctx.lineTo(392, 256);
+      ctx.stroke();
+
+      // Clock hands
+      // Hour hand
+      ctx.strokeStyle = '#4A3F5C';
+      ctx.lineWidth = 14;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(256, 256);
+      ctx.lineTo(256, 170);
+      ctx.stroke();
+
+      // Minute hand
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(256, 256);
+      ctx.lineTo(320, 200);
+      ctx.stroke();
+
+      // Center dot
+      ctx.fillStyle = '#4A3F5C';
+      ctx.beginPath();
+      ctx.arc(256, 256, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Tick marks
+      ctx.fillStyle = '#6B5B7D';
+      [[256, 110], [402, 256], [256, 402], [110, 256]].forEach(([x, y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.restore();
+    }
+
+    // Generate all icons
+    drawIcon(document.getElementById('favicon'), 0);
+    drawIcon(document.getElementById('icon192'), 0);
+    drawIcon(document.getElementById('icon192maskable'), 20); // 10% padding
+    drawIcon(document.getElementById('icon512'), 0);
+    drawIcon(document.getElementById('icon512maskable'), 52); // 10% padding
+
+    // Download function
+    function downloadIcon(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename + '.png';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+  </script>
+</body>
+</html>

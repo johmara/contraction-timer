@@ -1,0 +1,51 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with gradient -->
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A3F5C;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6B5B7D;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <circle cx="256" cy="256" r="240" fill="url(#grad)"/>
+  
+  <!-- Clock face -->
+  <circle cx="256" cy="256" r="180" fill="#E8DCC8" stroke="#F5F0E8" stroke-width="8"/>
+  
+  <!-- Heartbeat/contraction wave -->
+  <path d="M 120 256 L 180 256 L 200 200 L 220 320 L 240 256 L 280 256" 
+        stroke="#FF5722" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none"/>
+  <path d="M 280 256 L 320 256 L 340 200 L 360 320 L 380 256 L 392 256" 
+        stroke="#FF5722" 
+        stroke-width="12" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none"/>
+  
+  <!-- Clock hands (showing ~10:10 position for aesthetics) -->
+  <!-- Hour hand -->
+  <line x1="256" y1="256" x2="256" y2="170" 
+        stroke="#4A3F5C" 
+        stroke-width="14" 
+        stroke-linecap="round"/>
+  
+  <!-- Minute hand -->
+  <line x1="256" y1="256" x2="320" y2="200" 
+        stroke="#4A3F5C" 
+        stroke-width="10" 
+        stroke-linecap="round"/>
+  
+  <!-- Center dot -->
+  <circle cx="256" cy="256" r="16" fill="#4A3F5C"/>
+  
+  <!-- Small tick marks at 12, 3, 6, 9 -->
+  <circle cx="256" cy="110" r="8" fill="#6B5B7D"/>
+  <circle cx="402" cy="256" r="8" fill="#6B5B7D"/>
+  <circle cx="256" cy="402" r="8" fill="#6B5B7D"/>
+  <circle cx="110" cy="256" r="8" fill="#6B5B7D"/>
+</svg>
