@@ -75,6 +75,40 @@ export class RegressionService {
   }
 
   /**
+   * Fits a simple line: y = mx + c
+   * Useful for predicting linear trends like variance decay.
+   */
+  fitLinear(points: Point[]): { predict: (x: number) => number, coefficients: number[], zeroCrossing: number | null } {
+    if (points.length < 2) {
+      return { predict: () => 0, coefficients: [0, 0], zeroCrossing: null };
+    }
+
+    const n = points.length;
+    let sumX = 0;
+    let sumY = 0;
+    let sumXY = 0;
+    let sumXX = 0;
+
+    for (const p of points) {
+      sumX += p.x;
+      sumY += p.y;
+      sumXY += p.x * p.y;
+      sumXX += p.x * p.x;
+    }
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    return {
+      predict: (x: number) => slope * x + intercept,
+      coefficients: [intercept, slope],
+      // Find x where y = 0  =>  0 = mx + c  =>  x = -c/m
+      // Only valid if slope is negative (decaying to zero)
+      zeroCrossing: slope < 0 ? -intercept / slope : null
+    };
+  }
+
+  /**
    * Gaussian elimination to solve Ax = B
    */
   private solveLinearSystem(A: number[][], B: number[]): number[] {

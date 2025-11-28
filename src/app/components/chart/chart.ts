@@ -333,9 +333,10 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     scatterPoints.sort((a, b) => a.x - b.x);
 
     // 1. Calculate raw Moving Average statistics first
-    const windowSize = Math.max(3, Math.floor(scatterPoints.length / 5)); // Smaller window for more responsiveness
+    const windowSize = Math.max(3, Math.floor(scatterPoints.length / 5));
     const rawUpper: Point[] = [];
     const rawLower: Point[] = [];
+    const spreadPoints: Point[] = []; // Track variance directly
     
     for (let i = 0; i < scatterPoints.length; i++) {
       const start = Math.max(0, i - Math.floor(windowSize / 2));
@@ -357,63 +358,77 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       const currentX = scatterPoints[i].x;
       
       // Raw envelope points (2 SD)
-      rawUpper.push({ x: currentX, y: mean + sd * 2.0 });
-      rawLower.push({ x: currentX, y: mean - sd * 2.0 });
+      const upperY = mean + sd * 2.0;
+      const lowerY = mean - sd * 2.0;
+      
+      rawUpper.push({ x: currentX, y: upperY });
+      rawLower.push({ x: currentX, y: lowerY });
+      spreadPoints.push({ x: currentX, y: sd * 2.0 }); // Full spread width/2
     }
 
-    // 2. Use Regression Service to fit smooth curves to these raw statistical bounds
-    // This creates the "Smooth Enveloping Lines" requested
+    // 2. Fit Models
+    // Trend: Polynomial (Degree 2)
+    const trendFit = this.regressionService.fitPolynomial(scatterPoints, 2);
+    // Spread: Linear (Decay) - guarantees we can find zero crossing
+    const spreadFit = this.regressionService.fitLinear(spreadPoints);
+    
+    // Fit Upper/Lower using Polynomials for the *past* data (smooth look)
     const upperFit = this.regressionService.fitPolynomial(rawUpper, 2);
     const lowerFit = this.regressionService.fitPolynomial(rawLower, 2);
-    const trendFit = this.regressionService.fitPolynomial(scatterPoints, 2);
 
     const trendLine: Point[] = [];
     const upperBand: Point[] = [];
     const lowerBand: Point[] = [];
 
-    // Generate points for the smooth curves
+    // Generate points for the smooth curves (Historical)
     scatterPoints.forEach(p => {
       trendLine.push({ x: p.x, y: trendFit.predict(p.x) });
       upperBand.push({ x: p.x, y: Math.min(180, upperFit.predict(p.x)) });
       lowerBand.push({ x: p.x, y: Math.max(0, lowerFit.predict(p.x)) });
     });
 
-    // 3. Prediction: Project forward to find "Intersection"
-    // The "Funnel" narrows as labor becomes regular (Variance decreases).
-    // We project the Upper and Lower bands forward to find where they intersect (Zero Variance).
-    // This theoretical point of "Perfect Regularity" is our Delivery Prediction.
+    // 3. Prediction: Project forward using Convergence Model
+    // We project the Trend (Polynomial) and the Spread (Linear Decay)
+    // This forces the envelope to converge if the variance is decreasing.
     
     const lastTime = scatterPoints[scatterPoints.length - 1].x;
-    // Cap projection at 6 hours to avoid infinite lines if they don't converge
-    const maxProjection = 6 * 60 * 60 * 1000; 
-    const stepSize = 5 * 60 * 1000; // Check every 5 mins
     
-    let intersectionX = -1;
-    let intersectionY = -1;
+    // Find where Spread hits zero (Intersection)
+    let intersectionTime = spreadFit.zeroCrossing;
+    
+    // If intersection is in the past or way too far/diverging, fallback
+    const maxProjectionTime = lastTime + 12 * 60 * 60 * 1000; // Cap at 12 hours
+    
+    if (!intersectionTime || intersectionTime <= lastTime || intersectionTime > maxProjectionTime) {
+        // Fallback: If diverging, project a fixed distance
+        intersectionTime = lastTime + 4 * 60 * 60 * 1000; 
+    }
 
     const projectedUpper: Point[] = [];
     const projectedLower: Point[] = [];
-
-    // Start projection from the last actual point
+    
+    // Start from last point
     projectedUpper.push({ x: lastTime, y: upperFit.predict(lastTime) });
     projectedLower.push({ x: lastTime, y: lowerFit.predict(lastTime) });
 
-    for (let t = lastTime + stepSize; t <= lastTime + maxProjection; t += stepSize) {
-      const uY = upperFit.predict(t);
-      const lY = lowerFit.predict(t);
+    const stepSize = 5 * 60 * 1000;
+    
+    for (let t = lastTime + stepSize; t <= intersectionTime; t += stepSize) {
+      const trendY = trendFit.predict(t);
+      const spreadY = Math.max(0, spreadFit.predict(t)); // Clamp to 0
       
-      // If bands cross (Upper goes below Lower), we found intersection
-      if (uY <= lY) {
-        intersectionX = t;
-        intersectionY = (uY + lY) / 2; // Midpoint
-        projectedUpper.push({ x: intersectionX, y: intersectionY });
-        projectedLower.push({ x: intersectionX, y: intersectionY });
-        break;
-      }
+      const uY = trendY + spreadY;
+      const lY = trendY - spreadY;
       
       projectedUpper.push({ x: t, y: uY });
       projectedLower.push({ x: t, y: lY });
+      
+      if (spreadY <= 0.5) break; // Close enough to zero
     }
+    
+    // The final point is the intersection
+    const finalTrendY = trendFit.predict(intersectionTime);
+    const intersectionPoint = { x: intersectionTime, y: finalTrendY };
 
     return { 
       scatterPoints, 
@@ -422,7 +437,7 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       lowerBand,
       projectedUpper,
       projectedLower,
-      intersection: intersectionX > 0 ? [{ x: intersectionX, y: intersectionY }] : []
+      intersection: [intersectionPoint]
     };
   }
 }
