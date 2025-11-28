@@ -1,8 +1,8 @@
 import { Component, Input, OnChanges, SimpleChanges, AfterViewInit, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import 'chartjs-adapter-date-fns';
-import { ContractionSession } from '../../models/contraction.model';
-import { RegressionService, Point } from '../../services/regression.service';
+import { ContractionSession } from '../../core/models/contraction.model';
+import { RegressionService, Point } from '../../core/services/regression.service';
 
 Chart.register(...registerables);
 

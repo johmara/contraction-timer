@@ -1,15 +1,14 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { CommonModule } from '@angular/common';
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
 import { provideAuth, getAuth } from '@angular/fire/auth';
 
 import { AppRoutingModule } from './app-routing-module';
+import { CoreModule } from './core/core.module';
+import { SharedModule } from './shared/shared.module';
+import { LoginModule } from './features/login/login.module';
+import { ChartModule } from './features/chart/chart.module';
 import { App } from './app';
-import { ContractionService } from './services/contraction.service';
-import { AuthService } from './services/auth.service';
-import { Login } from './components/login/login';
-import { ChartComponent } from './components/chart/chart';
 import { environment } from '../environments/environment';
 
 // Log config at module load time
@@ -17,15 +16,14 @@ console.log('=== Module Loading - Firebase Config Check ===');
 console.log('Full Firebase Config:', environment.firebase);
 
 @NgModule({
-  declarations: [
-    App,
-    Login,
-    ChartComponent
-  ],
+  declarations: [App],
   imports: [
     BrowserModule,
-    CommonModule,
-    AppRoutingModule
+    AppRoutingModule,
+    CoreModule,
+    SharedModule,
+    LoginModule,
+    ChartModule
   ],
   providers: [
     provideFirebaseApp(() => {

@@ -3,7 +3,7 @@ import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { vi } from 'vitest';
 import { App } from './app';
-import { ContractionService } from './services/contraction.service';
+import { ContractionService } from './core/services/contraction.service';
 
 describe('App', () => {
   let component: App;

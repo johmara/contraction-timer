@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
-import { ContractionService } from './services/contraction.service';
-import { AuthService } from './services/auth.service';
-import { Contraction, ContractionSession, BirthPrediction } from './models/contraction.model';
+import { ContractionService } from './core/services/contraction.service';
+import { AuthService } from './core/services/auth.service';
+import { Contraction, ContractionSession, BirthPrediction } from './core/models/contraction.model';
 import { Subscription, interval } from 'rxjs';
 import { environment } from '../environments/environment';
 

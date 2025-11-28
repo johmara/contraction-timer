@@ -9,7 +9,7 @@ import {
   authState
 } from '@angular/fire/auth';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
