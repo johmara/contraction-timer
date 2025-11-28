@@ -290,7 +290,7 @@
         </svg>
       </button>
       
-      <h3>Duration Chart</h3>
+      <h3 [class.landscape-hidden]="isLandscape">Duration Chart</h3>
       
       <div *ngIf="!currentSession || currentSession.contractions.length === 0" class="empty-state">
         <p class="info">No active session with contractions</p>
@@ -298,7 +298,7 @@
       </div>
 
       <div *ngIf="currentSession && currentSession.contractions.length > 0">
-        <div class="chart-info">
+        <div class="chart-info" [class.landscape-hidden]="isLandscape">
           <div class="chart-session-date">
             Current Session - {{ currentSession.startDate | date:'MMM d, y HH:mm' }}
           </div>
