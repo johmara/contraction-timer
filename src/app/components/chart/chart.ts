@@ -1,5 +1,6 @@
 import { Component, Input, OnChanges, SimpleChanges, AfterViewInit, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import 'chartjs-adapter-date-fns';
 import { ContractionSession } from '../../models/contraction.model';
 
 Chart.register(...registerables);
@@ -53,69 +54,63 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       type: 'scatter',
       data: {
         datasets: [
+          // Trend envelope (smoothed line)
           {
-            label: 'Upper Envelope (Min/Max)',
-            data: data.upperEnvelope,
+            label: 'Trend Envelope',
+            data: data.trendLine,
             type: 'line',
-            borderColor: 'rgba(232, 220, 200, 0.9)',
-            backgroundColor: 'rgba(232, 220, 200, 0.15)',
-            borderWidth: 2,
-            fill: '+1',
-            pointRadius: 0,
-            tension: 0.4,
-            order: 1
-          },
-          {
-            label: 'Lower Envelope (Min/Max)',
-            data: data.lowerEnvelope,
-            type: 'line',
-            borderColor: 'rgba(232, 220, 200, 0.9)',
-            borderWidth: 2,
+            borderColor: 'rgba(198, 123, 92, 0.8)',
+            backgroundColor: 'rgba(198, 123, 92, 0.1)',
+            borderWidth: 2.5,
             fill: false,
             pointRadius: 0,
             tension: 0.4,
             order: 2
           },
+          // Upper confidence band
           {
-            label: 'Upper SD Band (±1σ)',
-            data: data.upperSDEnvelope,
+            label: 'Upper Band',
+            data: data.upperBand,
             type: 'line',
-            borderColor: 'rgba(198, 123, 92, 0.6)',
-            borderWidth: 1.5,
-            borderDash: [4, 4],
+            borderColor: 'rgba(198, 123, 92, 0.3)',
+            backgroundColor: 'rgba(198, 123, 92, 0.08)',
+            borderWidth: 1,
+            borderDash: [3, 3],
+            fill: '+1',
+            pointRadius: 0,
+            tension: 0.4,
+            order: 1
+          },
+          // Lower confidence band
+          {
+            label: 'Lower Band',
+            data: data.lowerBand,
+            type: 'line',
+            borderColor: 'rgba(198, 123, 92, 0.3)',
+            borderWidth: 1,
+            borderDash: [3, 3],
             fill: false,
             pointRadius: 0,
             tension: 0.4,
             order: 3
           },
+          // Scatter dots (individual contractions)
           {
-            label: 'Lower SD Band (±1σ)',
-            data: data.lowerSDEnvelope,
-            type: 'line',
-            borderColor: 'rgba(198, 123, 92, 0.6)',
-            borderWidth: 1.5,
-            borderDash: [4, 4],
-            fill: false,
-            pointRadius: 0,
-            tension: 0.4,
-            order: 4
-          },
-          {
-            label: 'Duration',
-            data: data.durationPoints,
+            label: 'Contractions',
+            data: data.scatterPoints,
             backgroundColor: 'rgba(74, 63, 92, 0.8)',
             borderColor: 'rgba(74, 63, 92, 1)',
             borderWidth: 2,
             pointRadius: 5,
             pointHoverRadius: 7,
-            order: 5
+            order: 4
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: true,
-        aspectRatio: 1.5,
+        aspectRatio: 1.6,
         interaction: {
           mode: 'point',
           intersect: false,
@@ -124,11 +119,11 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
           y: {
             beginAtZero: true,
             min: 0,
-            max: 120,
+            max: 135,
             grace: '10%',
             title: {
               display: true,
-              text: 'LENGTH (seconds)',
+              text: 'LENGTH (MM:SS)',
               font: {
                 size: 13,
                 weight: 'bold'
@@ -136,21 +131,34 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
               color: '#E8DCC8'
             },
             grid: {
-              color: 'rgba(232, 220, 200, 0.2)',
+              color: 'rgba(232, 220, 200, 0.15)',
               lineWidth: 1
             },
             ticks: {
               color: '#E8DCC8',
               font: {
                 size: 12
+              },
+              callback: (value: any) => {
+                const seconds = Math.round(value);
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
               }
             }
           },
           x: {
-            type: 'linear',
+            type: 'time',
+            time: {
+              displayFormats: {
+                hour: 'HH:mm',
+                minute: 'HH:mm'
+              },
+              tooltipFormat: 'HH:mm:ss'
+            },
             title: {
               display: true,
-              text: 'TIME (minutes from start)',
+              text: 'TIME',
               font: {
                 size: 13,
                 weight: 'bold'
@@ -158,14 +166,16 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
               color: '#E8DCC8'
             },
             grid: {
-              color: 'rgba(232, 220, 200, 0.2)',
+              color: 'rgba(232, 220, 200, 0.15)',
               lineWidth: 1
             },
             ticks: {
               color: '#E8DCC8',
               font: {
                 size: 11
-              }
+              },
+              maxRotation: 45,
+              minRotation: 0
             }
           }
         },
@@ -188,80 +198,44 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
           },
           tooltip: {
             backgroundColor: 'rgba(45, 42, 50, 0.95)',
-            padding: 14,
+            padding: 12,
             titleFont: {
-              size: 14,
+              size: 13,
               weight: 'bold'
             },
             bodyFont: {
-              size: 13
+              size: 12
             },
-            cornerRadius: 12,
+            cornerRadius: 8,
             displayColors: true,
             titleColor: '#E8DCC8',
             bodyColor: '#E8DCC8',
             callbacks: {
+              title: (context: any) => {
+                if (context.length > 0) {
+                  const timeMs = context[0].parsed.x;
+                  const time = new Date(timeMs);
+                  return time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                }
+                return '';
+              },
               label: (context: any) => {
                 let label = context.dataset.label || '';
                 if (label) {
                   label += ': ';
                 }
                 if (context.parsed.y !== null) {
-                  label += context.parsed.y.toFixed(1) + 's';
-                }
-                if (context.parsed.x !== null) {
-                  label += ` @ ${context.parsed.x.toFixed(1)}min`;
+                  const secs = Math.round(context.parsed.y);
+                  const mins = Math.floor(secs / 60);
+                  const sec = secs % 60;
+                  label += `${mins}:${sec.toString().padStart(2, '0')}`;
                 }
                 return label;
               }
             }
           }
         }
-      },
-      plugins: [{
-        id: 'customAnnotations',
-        afterDatasetsDraw(chart: any) {
-          const ctx = chart.ctx;
-          const xScale = chart.scales.x;
-          const yScale = chart.scales.y;
-          
-          // Find the critical point (highest value)
-          const data = chart.data.datasets[4].data as any[];
-          if (!data || data.length === 0) return;
-          
-          const maxPoint = data.reduce((max, p) => (p.y > max.y ? p : max));
-          const xPixel = xScale.getPixelForValue(maxPoint.x);
-          const yPixel = yScale.getPixelForValue(maxPoint.y);
-          
-          // Draw vertical line to critical point
-          ctx.save();
-          ctx.strokeStyle = 'rgba(232, 220, 200, 0.6)';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([5, 5]);
-          ctx.beginPath();
-          ctx.moveTo(xPixel, yScale.getPixelForValue(0));
-          ctx.lineTo(xPixel, yPixel);
-          ctx.stroke();
-          ctx.restore();
-          
-          // Draw annotation label
-          ctx.save();
-          ctx.font = 'bold 12px sans-serif';
-          ctx.fillStyle = '#E8DCC8';
-          ctx.textAlign = 'center';
-          ctx.fillText(`Peak: ${maxPoint.y.toFixed(0)}s @ ${maxPoint.x.toFixed(1)}min`, xPixel, yPixel - 20);
-          ctx.restore();
-          
-          // Draw legend for envelope types
-          const lastXPixel = chart.chartArea.right - 10;
-          ctx.save();
-          ctx.font = '11px sans-serif';
-          ctx.fillStyle = '#E8DCC8';
-          ctx.textAlign = 'right';
-          ctx.fillText('Solid: Min/Max | Dashed: ±1σ', lastXPixel, chart.chartArea.top + 20);
-          ctx.restore();
-        }
-      }]
+      }
     };
 
     this.chart = new Chart(ctx, config);
@@ -278,118 +252,96 @@ export class ChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     const data = this.prepareChartData();
-    this.chart.data.datasets[0].data = data.upperEnvelope;
-    this.chart.data.datasets[1].data = data.lowerEnvelope;
-    this.chart.data.datasets[2].data = data.upperSDEnvelope;
-    this.chart.data.datasets[3].data = data.lowerSDEnvelope;
-    this.chart.data.datasets[4].data = data.durationPoints;
+    this.chart.data.datasets[0].data = data.trendLine;
+    this.chart.data.datasets[1].data = data.upperBand;
+    this.chart.data.datasets[2].data = data.lowerBand;
+    this.chart.data.datasets[3].data = data.scatterPoints;
     
     this.chart.update();
   }
 
   private prepareChartData(): { 
-    durationPoints: Point[], 
-    upperEnvelope: Point[],
-    lowerEnvelope: Point[],
-    upperSDEnvelope: Point[],
-    lowerSDEnvelope: Point[]
+    scatterPoints: Point[], 
+    trendLine: Point[],
+    upperBand: Point[],
+    lowerBand: Point[]
   } {
     if (!this.session?.contractions.length) {
       return { 
-        durationPoints: [], 
-        upperEnvelope: [],
-        lowerEnvelope: [],
-        upperSDEnvelope: [],
-        lowerSDEnvelope: []
+        scatterPoints: [], 
+        trendLine: [],
+        upperBand: [],
+        lowerBand: []
       };
     }
 
-    const durationPoints: Point[] = [];
-    const startTime = this.session.contractions[0].startTime.getTime();
+    const scatterPoints: Point[] = [];
 
+    // Collect scatter points (actual contractions)
     this.session.contractions.forEach((contraction: any) => {
-      const minutesFromStart = (contraction.startTime.getTime() - startTime) / 60000;
+      const x = contraction.startTime.getTime();
       if (contraction.duration) {
-        durationPoints.push({ x: minutesFromStart, y: contraction.duration });
+        scatterPoints.push({ x, y: contraction.duration });
       }
     });
 
-    if (durationPoints.length < 2) {
+    if (scatterPoints.length < 2) {
       return {
-        durationPoints,
-        upperEnvelope: [],
-        lowerEnvelope: [],
-        upperSDEnvelope: [],
-        lowerSDEnvelope: []
+        scatterPoints,
+        trendLine: [],
+        upperBand: [],
+        lowerBand: []
       };
     }
 
     // Sort by x (time)
-    durationPoints.sort((a, b) => a.x - b.x);
+    scatterPoints.sort((a, b) => a.x - b.x);
 
-    // Calculate moving window envelopes (min/max)
-    const windowSize = Math.max(3, Math.floor(durationPoints.length / 10)); // 10% of data
-    const upperEnvelope: Point[] = [];
-    const lowerEnvelope: Point[] = [];
+    // Calculate trend line using moving average
+    const windowSize = Math.max(3, Math.floor(scatterPoints.length / 4));
+    const trendLine: Point[] = [];
+    const upperBand: Point[] = [];
+    const lowerBand: Point[] = [];
 
-    for (let i = 0; i < durationPoints.length; i++) {
-      // Define window around current point
+    for (let i = 0; i < scatterPoints.length; i++) {
       const start = Math.max(0, i - Math.floor(windowSize / 2));
-      const end = Math.min(durationPoints.length - 1, i + Math.floor(windowSize / 2));
+      const end = Math.min(scatterPoints.length - 1, i + Math.floor(windowSize / 2));
       
-      // Find max and min in window
-      let maxY = durationPoints[start].y;
-      let minY = durationPoints[start].y;
-      
-      for (let j = start; j <= end; j++) {
-        maxY = Math.max(maxY, durationPoints[j].y);
-        minY = Math.min(minY, durationPoints[j].y);
-      }
-      
-      const currentX = durationPoints[i].x;
-      upperEnvelope.push({ x: currentX, y: maxY });
-      lowerEnvelope.push({ x: currentX, y: Math.max(0, minY) });
-    }
-
-    // Calculate SD-based envelopes using sliding window
-    const sdWindowSize = Math.max(5, Math.floor(durationPoints.length / 8)); // 12.5% of data
-    const upperSDEnvelope: Point[] = [];
-    const lowerSDEnvelope: Point[] = [];
-
-    for (let i = 0; i < durationPoints.length; i++) {
-      // Define window for SD calculation
-      const start = Math.max(0, i - Math.floor(sdWindowSize / 2));
-      const end = Math.min(durationPoints.length - 1, i + Math.floor(sdWindowSize / 2));
-      
-      // Calculate mean and SD in window
+      // Calculate mean
+      let sum = 0;
+      let sumSq = 0;
       const windowValues = [];
+      
       for (let j = start; j <= end; j++) {
-        windowValues.push(durationPoints[j].y);
+        windowValues.push(scatterPoints[j].y);
+        sum += scatterPoints[j].y;
+        sumSq += scatterPoints[j].y * scatterPoints[j].y;
       }
       
-      const mean = windowValues.reduce((a, b) => a + b, 0) / windowValues.length;
-      const variance = windowValues.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / windowValues.length;
-      const sd = Math.sqrt(variance);
+      const count = end - start + 1;
+      const mean = sum / count;
+      const variance = (sumSq / count) - (mean * mean);
+      const sd = Math.sqrt(Math.max(0, variance));
       
-      const currentX = durationPoints[i].x;
-      upperSDEnvelope.push({ x: currentX, y: Math.min(120, mean + sd) });
-      lowerSDEnvelope.push({ x: currentX, y: Math.max(0, mean - sd) });
+      const currentX = scatterPoints[i].x;
+      trendLine.push({ x: currentX, y: mean });
+      upperBand.push({ x: currentX, y: Math.min(135, mean + sd * 0.7) });
+      lowerBand.push({ x: currentX, y: Math.max(0, mean - sd * 0.7) });
     }
 
-    console.log('Dual Envelope Visualization:', {
+    console.log('Chart Data Summary:', {
+      dataPoints: scatterPoints.length,
       windowSize,
-      sdWindowSize,
-      points: durationPoints.length,
-      maxDuration: Math.max(...durationPoints.map(p => p.y)),
-      minDuration: Math.min(...durationPoints.map(p => p.y))
+      maxDuration: Math.max(...scatterPoints.map(p => p.y)),
+      minDuration: Math.min(...scatterPoints.map(p => p.y)),
+      avgDuration: (scatterPoints.reduce((a, p) => a + p.y, 0) / scatterPoints.length).toFixed(1)
     });
 
     return { 
-      durationPoints, 
-      upperEnvelope,
-      lowerEnvelope,
-      upperSDEnvelope,
-      lowerSDEnvelope
+      scatterPoints, 
+      trendLine,
+      upperBand,
+      lowerBand
     };
   }
 }

@@ -144,10 +144,18 @@
           </div>
         </div>
 
-        <!-- End Session Button -->
-        <div class="session-actions">
-          <button class="btn btn-secondary" (click)="endSession()">End Session</button>
-        </div>
+         <!-- End Session Button -->
+         <div class="session-actions">
+           <button class="btn btn-secondary" (click)="endSession()">End Session</button>
+           <button class="btn btn-ghost" (click)="exportCurrentSessionCSV()" *ngIf="currentSession">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+               <polyline points="14 2 14 8 20 8"></polyline>
+               <path d="M12 18v-6m-3 6v-6m6 0v-6"></path>
+             </svg>
+             Export CSV
+           </button>
+         </div>
       </div>
     </div>
 
@@ -179,14 +187,21 @@
               <span class="value">{{ session.contractions.length }}</span>
             </div>
           </div>
-          <div class="session-actions">
-            <button class="btn btn-sm btn-primary" (click)="viewSessionChart(session)">
-              {{ chartSession?.id === session.id ? 'Hide Chart' : 'View Chart' }}
-            </button>
-            <button class="btn btn-sm btn-ghost" (click)="deleteSession(session.id)">
-              Delete
-            </button>
-          </div>
+           <div class="session-actions">
+             <button class="btn btn-sm btn-primary" (click)="viewSessionChart(session)">
+               {{ chartSession?.id === session.id ? 'Hide Chart' : 'View Chart' }}
+             </button>
+             <button class="btn btn-sm btn-ghost" (click)="exportSessionCSV(session)">
+               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-sm">
+                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                 <polyline points="14 2 14 8 20 8"></polyline>
+               </svg>
+               Export
+             </button>
+             <button class="btn btn-sm btn-ghost" (click)="deleteSession(session.id)">
+               Delete
+             </button>
+           </div>
           
           <!-- Inline Chart Display -->
           <div class="session-chart-container" *ngIf="chartSession?.id === session.id">

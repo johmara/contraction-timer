@@ -209,6 +209,16 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  exportCurrentSessionCSV(): void {
+    if (this.currentSession) {
+      this.contractionService.downloadSessionCSV(this.currentSession);
+    }
+  }
+
+  exportSessionCSV(session: ContractionSession): void {
+    this.contractionService.downloadSessionCSV(session);
+  }
+
   toggleUserMenu(): void {
     this.showUserMenu = !this.showUserMenu;
   }

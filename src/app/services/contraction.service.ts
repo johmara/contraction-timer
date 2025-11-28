@@ -412,6 +412,102 @@ export class ContractionService {
       currentTime = endTime;
     }
     
-    return contractions;
-  }
+     return contractions;
+   }
+
+   /**
+    * Export a session as CSV format
+    * Format: Time (HH:mm:ss), Duration (MM:SS), Frequency (min:sec), Notes
+    */
+   exportSessionAsCSV(session: ContractionSession): string {
+     const headers = ['#', 'Start Time', 'End Time', 'Duration (MM:SS)', 'Frequency (MM:SS)', 'Interval (seconds)'];
+     const rows = [headers];
+
+     session.contractions.forEach((c, index) => {
+       const startTime = c.startTime.toLocaleTimeString('en-US', {
+         hour: '2-digit',
+         minute: '2-digit',
+         second: '2-digit',
+         hour12: false
+       });
+
+       const endTime = c.endTime?.toLocaleTimeString('en-US', {
+         hour: '2-digit',
+         minute: '2-digit',
+         second: '2-digit',
+         hour12: false
+       }) || '—';
+
+       // Format duration as MM:SS
+       const durationMins = Math.floor(c.duration! / 60);
+       const durationSecs = c.duration! % 60;
+       const durationFormatted = `${durationMins}:${durationSecs.toString().padStart(2, '0')}`;
+
+       // Format frequency as MM:SS
+       const frequencyFormatted = c.frequency 
+         ? (() => {
+             const freqMins = Math.floor(c.frequency! / 60);
+             const freqSecs = c.frequency! % 60;
+             return `${freqMins}:${freqSecs.toString().padStart(2, '0')}`;
+           })()
+         : '—';
+
+       rows.push([
+         (index + 1).toString(),
+         startTime,
+         endTime,
+         durationFormatted,
+         frequencyFormatted,
+         c.frequency?.toString() || '—'
+       ]);
+     });
+
+     // Add summary section
+     const prediction = this.getPrediction();
+     if (prediction) {
+       rows.push([]);
+       rows.push(['PREDICTION SUMMARY']);
+       rows.push(['Estimated Delivery Time', prediction.estimatedTime.toLocaleString()]);
+       rows.push(['Confidence Level', prediction.confidence.toUpperCase()]);
+       rows.push(['Average Duration', `${Math.floor(prediction.avgDuration / 60)}:${(prediction.avgDuration % 60).toString().padStart(2, '0')}`]);
+       rows.push(['Average Frequency', prediction.avgFrequency.toFixed(1) + ' minutes']);
+       rows.push(['Trend', prediction.trend.toUpperCase()]);
+       rows.push(['Details', prediction.reasoning]);
+     }
+
+     // Convert to CSV
+     return rows.map(row => 
+       row.map(cell => {
+         // Escape quotes and wrap in quotes if contains comma
+         const escaped = String(cell).replace(/"/g, '""');
+         return escaped.includes(',') || escaped.includes('"') ? `"${escaped}"` : escaped;
+       }).join(',')
+     ).join('\n');
+   }
+
+   /**
+    * Trigger download of CSV file
+    */
+   downloadSessionCSV(session: ContractionSession): void {
+     const csv = this.exportSessionAsCSV(session);
+     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+     const link = document.createElement('a');
+     const url = URL.createObjectURL(blob);
+
+     const dateStr = session.startDate.toLocaleDateString('en-US', {
+       year: 'numeric',
+       month: '2-digit',
+       day: '2-digit',
+       hour: '2-digit',
+       minute: '2-digit'
+     }).replace(/[/:]/g, '-');
+
+     link.setAttribute('href', url);
+     link.setAttribute('download', `contractions-${dateStr}.csv`);
+     link.style.visibility = 'hidden';
+
+     document.body.appendChild(link);
+     link.click();
+     document.body.removeChild(link);
+   }
 }
