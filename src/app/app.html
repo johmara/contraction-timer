@@ -1,3 +1,6 @@
+<!-- Show login if NOT authenticated -->
+<app-login *ngIf="!isAuthenticated"></app-login>
+
 <!-- Show app if authenticated -->
 <div class="app-container" *ngIf="isAuthenticated">
   <!-- Local Mode Banner -->
